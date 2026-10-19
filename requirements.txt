@@ -1,0 +1,25 @@
+# Motor OaaS de Licitações Públicas - Dependências Oficiais
+httpx>=0.28.0
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+pymupdf>=1.25.0
+python-dotenv>=1.0.0
+beautifulsoup4>=4.12.0
+tenacity>=9.0.0
+rich>=13.9.0
+
+# Framework Multi-Agente & Web Scraping Furtivo
+scrapling>=0.2.0
+agentscope>=0.0.4
+
+# OCR Inteligente sob demanda (PP-Structure / PaddleOCR)
+# Nota: Pode ser instalado com aceleração CPU/GPU conforme ambiente
+paddlepaddle>=2.6.0; sys_platform != "win32" or python_version < "3.13"
+paddleocr>=2.8.0; sys_platform != "win32" or python_version < "3.13"
+
+# Desktop Windows Tray & Empacotamento
+pystray>=0.19.5
+pillow>=11.0.0
+apscheduler>=3.10.0
+pyinstaller>=6.10.0
+pywebview>=5.0.0

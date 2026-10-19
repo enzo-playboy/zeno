@@ -1,0 +1,44 @@
+# Ambientes Virtuais Python
+.venv/
+venv/
+ENV/
+env/
+
+# Bytecode e Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Banco de Dados Local
+*.db
+*.sqlite
+*.sqlite3
+bid_engine.db
+
+# Variáveis de Ambiente e Segredos
+.env
+.env.*
+!.env.example
+
+# Builds, Distribuição e Instaladores
+build/
+dist/
+*.exe
+*.msi
+*.zip
+
+# Logs e Downloads
+logs/
+*.log
+downloads/
+
+# IDEs e Editores
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db

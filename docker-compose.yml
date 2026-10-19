@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  bid-engine:
+    build: .
+    container_name: bid_engine_oaas
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./downloads:/app/downloads
+      - ./data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=sqlite:////app/data/bid_engine.db
+    command: ["python", "src/main.py", "--cron", "0 */4 * * *"]

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arquitetura do Motor OaaS de Licitações (Zeno Lic)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0e17;
+      --bg-surface: #111827;
+      --bg-card: rgba(17, 24, 39, 0.8);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --primary: #10b981;
+      --primary-glow: rgba(16, 185, 129, 0.3);
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.3);
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #1e293b 0%, var(--bg-primary) 70%);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      padding: 30px 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid var(--primary);
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 2.75rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #ffffff 30%, #9ca3af 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 1.15rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .grid-pipeline {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      border-color: var(--primary);
+      box-shadow: 0 12px 30px var(--primary-glow);
+    }
+
+    .card-step {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-body {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 16px;
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #e2e8f0;
+    }
+
+    .flow-connector {
+      text-align: center;
+      font-size: 1.5rem;
+      color: var(--primary);
+      margin: 15px 0;
+    }
+
+    .section-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin: 40px 0 20px;
+      border-left: 4px solid var(--primary);
+      padding-left: 14px;
+    }
+
+    .code-preview {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: var(--radius);
+      padding: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: #58a6ff;
+      overflow-x: auto;
+      margin-top: 15px;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 60px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      border-top: 1px solid var(--border-color);
+      padding-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">Outcome as a Service (OaaS)</div>
+      <h1>Motor de Inteligência e Triagem de Licitações</h1>
+      <p class="subtitle">Arquitetura de alta performance integrando Coleta PNCP, Scrapling Furtivo, Parser Híbrido PyMuPDF + PaddleOCR, PageIndex Vectorless RAG e Auditoria ReAct no WhatsApp.</p>
+    </header>
+
+    <div class="grid-pipeline">
+      <!-- Passo 1 -->
+      <div class="card">
+        <div class="card-step">PASSO 01 / INGESTÃO</div>
+        <div class="card-title">📡 Radar Multi-Fonte</div>
+        <div class="card-body">Varredura no PNCP, Compras.gov.br e Diários Oficiais de MT (AMM-MT / SEPLAG) com filtragem de palavras-chave positivas e negativas.</div>
+        <div class="tag-list">
+          <span class="tag">PNCP REST API</span>
+          <span class="tag">uf=MT</span>
+          <span class="tag">Idempotência SQLite</span>
+        </div>
+      </div>
+
+      <!-- Passo 2 -->
+      <div class="card">
+        <div class="card-step">PASSO 02 / CAPTURA</div>
+        <div class="card-title">⚡ Downloader Furtivo</div>
+        <div class="card-body">Bypass de Cloudflare/WAF em portais externos (BLL, Portal de Compras Públicas), extração de arquivos .zip/.rar e recuperação do Termo de Referência.</div>
+        <div class="tag-list">
+          <span class="tag">D4Vinci/Scrapling</span>
+          <span class="tag">StealthyFetcher</span>
+          <span class="tag">TinyFish Fallback</span>
+        </div>
+      </div>
+
+      <!-- Passo 3 -->
+      <div class="card">
+        <div class="card-step">PASSO 03 / PROCESSAMENTO</div>
+        <div class="card-title">📑 Parser Híbrido</div>
+        <div class="card-body">Extração instantânea vetorial com PyMuPDF. Páginas escaneadas (&lt; 50 chars) disparam PaddleOCR e PP-Structure para reconstrução de tabelas de preços.</div>
+        <div class="tag-list">
+          <span class="tag">PyMuPDF (fitz)</span>
+          <span class="tag">PaddleOCR</span>
+          <span class="tag">PP-Structure</span>
+        </div>
+      </div>
+
+      <!-- Passo 4 -->
+      <div class="card">
+        <div class="card-step">PASSO 04 / AUDITORIA</div>
+        <div class="card-title">🧠 PageIndex Vectorless RAG</div>
+        <div class="card-body">Mapeamento hierárquico em árvore de cláusulas e anexos sem fragmentação em chunks cegos. Auditoria ReAct com citação exata de página [Pág. X].</div>
+        <div class="tag-list">
+          <span class="tag">VectifyAI/PageIndex</span>
+          <span class="tag">AgentScope ReAct</span>
+          <span class="tag">Red Flags Detector</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Contrato de Saída do Agente Auditor (JSON Schema)</div>
+    <div class="code-preview">
+{
+  "numero_controle_pncp": "00000000000100-1-000123/2026",
+  "orgao": "Prefeitura Municipal de Cuiabá - MT",
+  "modalidade": "Pregão Eletrônico",
+  "data_disputa": "2026-11-05T09:00:00",
+  "portal_disputa": "Portal de Compras Públicas",
+  "objeto_resumo": "Registro de preços para aquisição de equipamentos de informática e nobreaks.",
+  "valor_total_estimado": 485000.00,
+  "itens_interesse_cliente": [
+    {
+      "item": 4,
+      "descricao": "Computador Desktop Core i5, 16GB RAM, SSD 512GB",
+      "quantidade": 50,
+      "valor_unitario_teto": 3850.00,
+      "pagina_referencia": 28
+    }
+  ],
+  "exigencias_habilitacao_criticas": [
+    "Atestado de capacidade técnica comprovando fornecimento mínimo de 50% [Pág. 14]",
+    "Certidão Negativa de Falência [Pág. 12]"
+  ],
+  "armadilhas_e_riscos": [
+    "Prazo de entrega curto: 10 dias corridos após Nota de Empenho [Pág. 31]"
+  ],
+  "score_aderencia": 9.2,
+  "recomendacao_executiva": "PARTICIPAR - Margem excelente e riscos operacionais baixos."
+}
+    </div>
+
+    <footer>
+      Motor OaaS de Licitações Públicas &bull; Zeno Lic &bull; Documento de Arquitetura Interativa
+    </footer>
+  </div>
+</body>
+</html>
