@@ -2,6 +2,8 @@ import logging
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
+import gc
+
 logger = logging.getLogger(__name__)
 
 # Tentar importar paddleocr defensivamente
@@ -60,27 +62,52 @@ class PaddleOCRWorker:
         except Exception as e:
             logger.error(f"Erro ao executar OCR na imagem: {e}")
             return ""
+        finally:
+            gc.collect()
 
-    def extrair_tabelas_markdown(self, image_bytes_ou_path) -> str:
+    def _fallback_tabela_from_text(self, text: str) -> str:
+        """Reconstrói uma tabela Markdown a partir de linhas com indícios de itens/lotes/valores."""
+        if not text:
+            return ""
+        linhas = [l.strip() for l in text.split("\n") if l.strip()]
+        itens = []
+        for l in linhas:
+            l_lower = l.lower()
+            if any(k in l_lower for k in ["item", "lote", "qtd", "quantidade", "valor", "r$", "unidade", "descrição", "especificação"]):
+                itens.append(l)
+
+        if itens:
+            header = "| Item / Especificação / Valor Identificado |"
+            sep = "| --- |"
+            rows = [f"| {it.replace('|', '/')} |" for it in itens]
+            return f"\n{header}\n{sep}\n" + "\n".join(rows) + "\n"
+        return ""
+
+    def extrair_tabelas_markdown(self, image_bytes_ou_path, fallback_text: str = "") -> str:
         """Utiliza PP-Structure para converter tabelas da página escaneada em Markdown."""
-        if not HAS_PADDLE:
-            return ""
-
-        engine = self._get_table_engine()
-        if not engine:
-            return ""
-
+        tabelas_md = []
         try:
-            result = engine(image_bytes_ou_path)
-            tabelas_md = []
-            for item in result:
-                if item.get("type") == "table":
-                    res = item.get("res", {})
-                    html = res.get("html", "")
-                    if html:
-                        # Converte HTML da tabela para Markdown básico
-                        tabelas_md.append(f"\n```html\n{html}\n```\n")
-            return "\n".join(tabelas_md)
+            if HAS_PADDLE:
+                engine = self._get_table_engine()
+                if engine:
+                    result = engine(image_bytes_ou_path)
+                    for item in result:
+                        if item.get("type") == "table":
+                            res = item.get("res", {})
+                            html = res.get("html", "")
+                            if html:
+                                tabelas_md.append(f"\n```html\n{html}\n```\n")
         except Exception as e:
             logger.error(f"Erro ao reconstruir tabelas com PP-Structure: {e}")
-            return ""
+        finally:
+            gc.collect()
+
+        if tabelas_md:
+            return "\n".join(tabelas_md)
+
+        # Fallback inteligente se PPStructure não produziu tabela direta
+        if fallback_text:
+            return self._fallback_tabela_from_text(fallback_text)
+
+        return ""
+

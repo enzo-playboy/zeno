@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zeno Radar — Inteligência em Licitações</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              lime: '#B8FF01',
+              limeHover: '#a3e600',
+              dark: '#121417',
+              surface: '#FFFFFF',
+              bg: '#F4F6F9',
+              subtle: '#6B7280',
+              border: '#E5E7EB',
+              accentDark: '#1E232B'
+            }
+          },
+          borderRadius: {
+            '4xl': '2rem',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Reset total para eliminar qualquer vão na tela nativa do Windows */
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #F4F6F9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+    }
+
+    /* Scrollbar minimalista */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+
+    /* Animações fluidas */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeInUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes pulseSoft {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.85; }
+    }
+    .pulse-radar {
+      animation: pulseSoft 2.5s infinite ease-in-out;
+    }
+
+    .active-nav {
+      background-color: #FFFFFF !important;
+      color: #121417 !important;
+      font-weight: 600;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+    }
+  </style>
+</head>
+<body class="flex w-full h-full text-brand-dark antialiased">
+
+  <!-- ==================== SIDEBAR FIXA ==================== -->
+  <aside class="w-64 h-full bg-[#F4F6F9] border-r border-brand-border flex flex-col justify-between p-5 select-none shrink-0">
+    <div>
+      <!-- Brand Logo -->
+      <div class="flex items-center gap-3 px-2 mb-8">
+        <div class="w-10 h-10 rounded-2xl bg-brand-dark flex items-center justify-center text-brand-lime shadow-md shadow-brand-lime/10">
+          <i data-lucide="radar" class="w-5 h-5 pulse-radar"></i>
+        </div>
+        <div>
+          <span class="text-lg font-black tracking-wider uppercase block">ZENO RADAR</span>
+          <span class="text-[10px] text-brand-subtle tracking-tight font-medium">OaaS Licitações MT</span>
+        </div>
+      </div>
+
+      <!-- Navigation Menu -->
+      <nav class="space-y-1.5" id="nav-container">
+        <button onclick="navigate('home')" id="nav-home" class="nav-btn active-nav w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm transition-all duration-200 text-brand-subtle hover:text-brand-dark hover:bg-white/60">
+          <div class="flex items-center gap-3">
+            <i data-lucide="home" class="w-4 h-4"></i>
+            <span>Home</span>
+          </div>
+        </button>
+
+        <button onclick="navigate('editais')" id="nav-editais" class="nav-btn w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm transition-all duration-200 text-brand-subtle hover:text-brand-dark hover:bg-white/60">
+          <div class="flex items-center gap-3">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            <span>Editais PNCP</span>
+          </div>
+          <span id="badge-editais-count" class="text-[11px] font-bold bg-brand-lime/30 text-brand-dark px-2 py-0.5 rounded-full">3</span>
+        </button>
+
+        <button onclick="navigate('chatbot')" id="nav-chatbot" class="nav-btn w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm transition-all duration-200 text-brand-subtle hover:text-brand-dark hover:bg-white/60">
+          <div class="flex items-center gap-3">
+            <i data-lucide="message-square-quote" class="w-4 h-4"></i>
+            <span>Chatbot Jurídico</span>
+          </div>
+          <span class="text-[10px] font-bold bg-brand-lime text-brand-dark px-1.5 py-0.2 rounded-md uppercase tracking-wider">IA</span>
+        </button>
+
+        <button onclick="navigate('relatorios')" id="nav-relatorios" class="nav-btn w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm transition-all duration-200 text-brand-subtle hover:text-brand-dark hover:bg-white/60">
+          <div class="flex items-center gap-3">
+            <i data-lucide="folder-check" class="w-4 h-4"></i>
+            <span>Relatórios & PDFs</span>
+          </div>
+        </button>
+      </nav>
+    </div>
+
+    <!-- User / Organization Badge -->
+    <div class="bg-white p-3.5 rounded-2xl border border-brand-border/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-brand-lime transition" onclick="openRadarConfig()">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-brand-lime flex items-center justify-center font-bold text-xs text-brand-dark">
+          MT
+        </div>
+        <div class="overflow-hidden">
+          <p class="text-xs font-bold truncate">Empresa Piloto MT</p>
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+            <span class="text-[10px] text-brand-subtle">HWID Ativo</span>
+          </div>
+        </div>
+      </div>
+      <i data-lucide="sliders" class="w-4 h-4 text-brand-subtle"></i>
+    </div>
+  </aside>
+
+  <!-- ==================== ÁREA DE CONTEÚDO PRINCIPAL (100% FLUIDA) ==================== -->
+  <main class="flex-1 h-full flex flex-col bg-white overflow-hidden">
+    
+    <!-- Header Superior com Ações -->
+    <header class="h-20 border-b border-brand-border/70 px-8 flex items-center justify-between bg-white shrink-0">
+      <div>
+        <h1 id="page-title" class="text-2xl font-black tracking-tight text-brand-dark">Radar de Oportunidades</h1>
+        <p id="page-subtitle" class="text-xs text-brand-subtle">Monitoramento ativo no Portal Nacional de Contratações Públicas</p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Tag UF -->
+        <button onclick="openRadarConfig()" class="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full text-xs font-bold border border-blue-200 transition flex items-center gap-1.5">
+          <span>UF: MT (PNCP)</span>
+          <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+        </button>
+
+        <!-- Botão Primário: Buscar no PNCP -->
+        <button id="btn-search-pncp" onclick="triggerSearchPNCP()" class="px-4 py-2 bg-brand-lime hover:bg-brand-limeHover text-brand-dark rounded-full text-xs font-black tracking-wide shadow-sm hover:shadow-brand-lime/20 transition flex items-center gap-2">
+          <i data-lucide="search" class="w-3.5 h-3.5"></i>
+          <span>BUSCAR NO PNCP</span>
+        </button>
+
+        <!-- Barra de Busca Rápida -->
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 text-brand-subtle absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+          <input type="text" id="quick-filter" oninput="handleQuickFilter(this.value)" placeholder="Buscar órgão, pregão ou item..." class="w-64 pl-9 pr-4 py-2 bg-[#F4F6F9] border border-transparent focus:border-brand-lime focus:bg-white rounded-full text-xs outline-none transition">
+        </div>
+      </div>
+    </header>
+
+    <!-- Content Body com Scroll Interno Independente -->
+    <div id="content-viewport" class="flex-1 overflow-y-auto p-8 bg-[#F4F6F9]">
+      
+      <!-- ==================== VIEW 1: HOME (DASHBOARD) ==================== -->
+      <section id="view-home" class="space-y-6 animate-fadeIn">
+        <!-- Cards de Métricas Reais -->
+        <div class="grid grid-cols-4 gap-5">
+          <!-- Card 1: Volume -->
+          <div class="bg-brand-lime p-5 rounded-3xl shadow-sm relative overflow-hidden flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+              <span class="text-xs font-bold uppercase tracking-wider text-brand-dark/70">Volume em Disputa</span>
+              <div class="w-7 h-7 rounded-full bg-brand-dark/10 flex items-center justify-center">
+                <i data-lucide="trending-up" class="w-3.5 h-3.5 text-brand-dark"></i>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-2xl font-black text-brand-dark block tracking-tight">R$ 1.674.366,78</span>
+              <span class="text-[11px] font-medium text-brand-dark/80 mt-1 block">Oportunidades em MT</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Score Médio -->
+          <div class="bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+              <span class="text-xs font-bold uppercase tracking-wider text-brand-subtle">Aderência Média</span>
+              <div class="w-7 h-7 rounded-full bg-brand-lime/20 flex items-center justify-center">
+                <i data-lucide="target" class="w-3.5 h-3.5 text-brand-dark"></i>
+              </div>
+            </div>
+            <div class="mt-4">
+              <div class="flex items-baseline gap-1">
+                <span class="text-2xl font-black text-brand-dark">9.0</span>
+                <span class="text-xs text-brand-subtle font-semibold">/10</span>
+              </div>
+              <span class="text-[11px] text-green-600 font-semibold mt-1 block">Alta compatibilidade</span>
+            </div>
+          </div>
+
+          <!-- Card 3: Editais Salvos -->
+          <div class="bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+              <span class="text-xs font-bold uppercase tracking-wider text-brand-subtle">Auditados & Salvos</span>
+              <div class="w-7 h-7 rounded-full bg-[#F4F6F9] flex items-center justify-center">
+                <i data-lucide="file-check" class="w-3.5 h-3.5 text-brand-dark"></i>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-2xl font-black text-brand-dark block tracking-tight" id="metric-total-bids">3</span>
+              <span class="text-[11px] text-brand-subtle mt-1 block">Persistidos no SQLite</span>
+            </div>
+          </div>
+
+          <!-- Card 4: Idempotência -->
+          <div class="bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+              <span class="text-xs font-bold uppercase tracking-wider text-brand-subtle">Status de Licença</span>
+              <div class="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-green-700"></i>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-2xl font-black text-brand-dark block tracking-tight">100%</span>
+              <span class="text-[11px] text-green-600 font-semibold mt-1 block">Hardware Lock Ativo</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção Gráfica e Nichos -->
+        <div class="grid grid-cols-3 gap-5">
+          <!-- Gráfico Semanal -->
+          <div class="col-span-2 bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm">
+            <div class="flex justify-between items-center mb-6">
+              <div>
+                <h3 class="font-bold text-sm text-brand-dark">Volume de Pregões Encontrados</h3>
+                <p class="text-xs text-brand-subtle">Distribuição recente por data de publicação</p>
+              </div>
+              <span class="text-xs font-bold bg-[#F4F6F9] px-3 py-1 rounded-full text-brand-subtle">Mato Grosso</span>
+            </div>
+            <!-- Barras em CSS Flexbox -->
+            <div class="h-44 flex items-end justify-between gap-4 px-2 pt-4 border-b border-brand-border/50">
+              <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                <div class="w-full max-w-[36px] bg-brand-dark/10 rounded-t-xl transition-all duration-500 hover:bg-brand-lime" style="height: 45%;"></div>
+                <span class="text-[10px] text-brand-subtle font-medium">Sem 1</span>
+              </div>
+              <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                <div class="w-full max-w-[36px] bg-brand-dark/10 rounded-t-xl transition-all duration-500 hover:bg-brand-lime" style="height: 65%;"></div>
+                <span class="text-[10px] text-brand-subtle font-medium">Sem 2</span>
+              </div>
+              <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                <div class="w-full max-w-[36px] bg-brand-dark/10 rounded-t-xl transition-all duration-500 hover:bg-brand-lime" style="height: 35%;"></div>
+                <span class="text-[10px] text-brand-subtle font-medium">Sem 3</span>
+              </div>
+              <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                <div class="w-full max-w-[36px] bg-brand-lime rounded-t-xl transition-all duration-500 shadow-sm" style="height: 90%;"></div>
+                <span class="text-[10px] text-brand-dark font-bold">Sem 4 (Atual)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card de Nicho Alvo -->
+          <div class="bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm flex flex-col justify-between">
+            <div>
+              <h3 class="font-bold text-sm text-brand-dark">Aderência por Categoria</h3>
+              <p class="text-xs text-brand-subtle mb-4">Filtrado pelo perfil cadastrado</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <div class="flex justify-between text-xs font-semibold mb-1">
+                    <span>Obras e Infraestrutura</span>
+                    <span class="text-brand-dark font-bold">92%</span>
+                  </div>
+                  <div class="w-full h-2 bg-[#F4F6F9] rounded-full overflow-hidden">
+                    <div class="h-full bg-brand-lime rounded-full" style="width: 92%"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex justify-between text-xs font-semibold mb-1">
+                    <span>TI, Hardware e Redes</span>
+                    <span class="text-brand-dark font-bold">78%</span>
+                  </div>
+                  <div class="w-full h-2 bg-[#F4F6F9] rounded-full overflow-hidden">
+                    <div class="h-full bg-brand-dark rounded-full" style="width: 78%"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex justify-between text-xs font-semibold mb-1">
+                    <span>Materiais de Consumo</span>
+                    <span class="text-brand-dark font-bold">40%</span>
+                  </div>
+                  <div class="w-full h-2 bg-[#F4F6F9] rounded-full overflow-hidden">
+                    <div class="h-full bg-gray-300 rounded-full" style="width: 40%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button onclick="navigate('editais')" class="w-full py-2.5 mt-4 bg-[#F4F6F9] hover:bg-brand-lime text-brand-dark rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <span>Ver todos os editais</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== VIEW 2: EDITAIS PNCP (LISTA E AUDITORIA) ==================== -->
+      <section id="view-editais" class="space-y-4 hidden animate-fadeIn">
+        <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-brand-border/80">
+          <span class="text-xs font-bold text-brand-subtle uppercase tracking-wider">3 Editais Auditados Recentemente</span>
+          <div class="flex gap-2">
+            <span class="text-xs bg-brand-lime/30 text-brand-dark px-3 py-1 rounded-full font-bold">Score ≥ 7.0</span>
+          </div>
+        </div>
+
+        <!-- Lista de Cards de Editais -->
+        <div class="space-y-4">
+          <!-- Card Edital 1 (Canarana) -->
+          <div class="bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm hover:border-brand-lime transition">
+            <div class="flex justify-between items-start">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-black bg-brand-dark text-white px-2.5 py-0.5 rounded-full">CONCORRÊNCIA ELETRÔNICA</span>
+                  <span class="text-xs text-brand-subtle font-medium">ID PNCP: 15023922000191-1-000105/2026</span>
+                </div>
+                <h2 class="text-lg font-bold text-brand-dark">MUNICÍPIO DE CANARANA - MT</h2>
+                <p class="text-xs text-brand-subtle max-w-2xl">Construção da Casa Lar conforme Termo de Referência, projetos de engenharia e memorial descritivo.</p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-brand-subtle block font-medium">Valor Estimado</span>
+                <span class="text-xl font-black text-brand-dark">R$ 1.674.366,78</span>
+                <div class="mt-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-brand-lime text-brand-dark text-xs font-bold">
+                  ★ 9.0 / 10
+                </div>
+              </div>
+            </div>
+
+            <!-- Checklist Auditado pelo PageIndex -->
+            <div class="mt-5 pt-4 border-t border-brand-border/60 grid grid-cols-3 gap-3">
+              <div class="bg-[#F4F6F9] p-3 rounded-2xl">
+                <span class="text-[10px] text-brand-subtle block font-bold uppercase">Habilitação Jurídica</span>
+                <span class="text-xs font-semibold text-brand-dark flex items-center gap-1 mt-0.5">
+                  <i data-lucide="check-circle" class="w-3.5 h-3.5 text-green-600"></i>
+                  Certidão Falência <span class="text-[10px] text-blue-600 font-bold">[Pág. 17]</span>
+                </span>
+              </div>
+              <div class="bg-[#F4F6F9] p-3 rounded-2xl">
+                <span class="text-[10px] text-brand-subtle block font-bold uppercase">Qualificação Financeira</span>
+                <span class="text-xs font-semibold text-brand-dark flex items-center gap-1 mt-0.5">
+                  <i data-lucide="check-circle" class="w-3.5 h-3.5 text-green-600"></i>
+                  ILG / ILC ≥ 1,0 <span class="text-[10px] text-blue-600 font-bold">[Pág. 19]</span>
+                </span>
+              </div>
+              <div class="bg-[#F4F6F9] p-3 rounded-2xl">
+                <span class="text-[10px] text-brand-subtle block font-bold uppercase">Capacidade Técnica</span>
+                <span class="text-xs font-semibold text-brand-dark flex items-center gap-1 mt-0.5">
+                  <i data-lucide="check-circle" class="w-3.5 h-3.5 text-green-600"></i>
+                  Atestado Compatível <span class="text-[10px] text-blue-600 font-bold">[Pág. 20]</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Ações -->
+            <div class="mt-4 flex justify-between items-center">
+              <span class="text-xs text-brand-subtle font-medium">Disputa: <strong>16/10/2026 às 23:59</strong></span>
+              <div class="flex gap-2">
+                <button onclick="openChatWithEdital('Canarana-105')" class="px-3.5 py-1.5 bg-[#F4F6F9] hover:bg-brand-lime text-brand-dark rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                  <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                  <span>Perguntar à IA</span>
+                </button>
+                <button onclick="openPDF('1_EDITAL.pdf')" class="px-3.5 py-1.5 bg-brand-dark text-white hover:bg-brand-dark/90 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                  <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+                  <span>Ver Anexos (9)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Edital 2 (Peixoto de Azevedo) -->
+          <div class="bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm hover:border-brand-lime transition">
+            <div class="flex justify-between items-start">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-black bg-brand-dark text-white px-2.5 py-0.5 rounded-full">PREGÃO ELETRÔNICO</span>
+                  <span class="text-xs text-brand-subtle font-medium">PE 036/2026</span>
+                </div>
+                <h2 class="text-lg font-bold text-brand-dark">MUNICÍPIO DE PEIXOTO DE AZEVEDO - MT</h2>
+                <p class="text-xs text-brand-subtle max-w-2xl">Contratação de software de gestão em saúde pública municipal e suporte continuado.</p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-brand-subtle block font-medium">Valor Estimado</span>
+                <span class="text-xl font-black text-brand-dark">R$ 480.000,00</span>
+                <div class="mt-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-brand-lime text-brand-dark text-xs font-bold">
+                  ★ 8.5 / 10
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 flex justify-end gap-2">
+              <button onclick="openChatWithEdital('Peixoto-036')" class="px-3.5 py-1.5 bg-[#F4F6F9] hover:bg-brand-lime text-brand-dark rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                <span>Perguntar à IA</span>
+              </button>
+              <button onclick="openPDF('1_2_EDITAL_PE_036_2026.pdf')" class="px-3.5 py-1.5 bg-brand-dark text-white hover:bg-brand-dark/90 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+                <span>Ver Edital</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== VIEW 3: CHATBOT JURÍDICO IA ==================== -->
+      <section id="view-chatbot" class="h-full flex flex-col bg-white rounded-3xl border border-brand-border/80 shadow-sm overflow-hidden hidden animate-fadeIn">
+        <!-- Topo do Chat -->
+        <div class="p-4 border-b border-brand-border/70 flex justify-between items-center bg-[#F9FAFB]">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-brand-lime flex items-center justify-center text-brand-dark font-black text-xs">
+              IA
+            </div>
+            <div>
+              <span class="text-xs font-bold block text-brand-dark">Auditor Jurídico Especialista</span>
+              <span class="text-[10px] text-brand-subtle">Respostas fundamentadas com citação exata de página</span>
+            </div>
+          </div>
+
+          <!-- Seletor de Edital em Foco -->
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-brand-subtle font-medium">Edital em foco:</span>
+            <select id="chat-edital-select" class="text-xs font-bold bg-white border border-brand-border rounded-xl px-3 py-1.5 outline-none focus:border-brand-lime">
+              <option value="Canarana-105">Canarana-MT (Casa Lar - R$ 1,67M)</option>
+              <option value="Peixoto-036">Peixoto de Azevedo-MT (Software Saúde)</option>
+              <option value="Tangara-001">Tangará da Serra-MT (Câmara Municipal)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Área de Conversa -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4">
+          <!-- Mensagem IA -->
+          <div class="flex gap-3 max-w-2xl">
+            <div class="w-7 h-7 rounded-full bg-brand-dark text-white flex items-center justify-center text-xs shrink-0 font-bold">
+              Z
+            </div>
+            <div class="bg-[#F4F6F9] p-4 rounded-3xl text-xs leading-relaxed text-brand-dark space-y-2">
+              <p>Olá! Já indexei todas as seções do edital selecionado via <strong>PageIndex</strong>. O que você gostaria de auditar?</p>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <button onclick="sendQuickPrompt('Quais os atestados técnicos exigidos?')" class="px-3 py-1 bg-white hover:bg-brand-lime border border-brand-border rounded-full text-[11px] font-medium transition">Atestados Técnicos</button>
+                <button onclick="sendQuickPrompt('Qual o prazo de entrega e as penalidades?')" class="px-3 py-1 bg-white hover:bg-brand-lime border border-brand-border rounded-full text-[11px] font-medium transition">Prazo de Entrega</button>
+                <button onclick="sendQuickPrompt('Existe exigência de amostra ou visita técnica?')" class="px-3 py-1 bg-white hover:bg-brand-lime border border-brand-border rounded-full text-[11px] font-medium transition">Amostra / Visita</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mensagem Usuário -->
+          <div class="flex gap-3 max-w-xl ml-auto justify-end">
+            <div class="bg-brand-lime text-brand-dark p-4 rounded-3xl text-xs font-medium shadow-sm">
+              Existe alguma armadilha ou prazo abusivo no edital de Canarana?
+            </div>
+          </div>
+
+          <!-- Mensagem IA com Citação -->
+          <div class="flex gap-3 max-w-2xl">
+            <div class="w-7 h-7 rounded-full bg-brand-dark text-white flex items-center justify-center text-xs shrink-0 font-bold">
+              Z
+            </div>
+            <div class="bg-[#F4F6F9] p-4 rounded-3xl text-xs leading-relaxed text-brand-dark space-y-2">
+              <p>Após auditar o edital e o Termo de Referência, destaco os pontos críticos:</p>
+              <ul class="list-disc pl-4 space-y-1">
+                <li><strong>Prazo de Execução:</strong> 180 dias corridos contados da Ordem de Serviço <span class="bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded font-bold text-[10px]">[Pág. 12]</span>.</li>
+                <li><strong>Visita Técnica:</strong> Facultativa, podendo ser substituída por declaração formal de pleno conhecimento do local <span class="bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded font-bold text-[10px]">[Pág. 18]</span>.</li>
+                <li><strong>Exigência Restritiva:</strong> Nenhuma marca direcionada ou amostra presencial abusiva foi identificada.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input do Chat -->
+        <div class="p-4 border-t border-brand-border/70 bg-white">
+          <form onsubmit="handleChatSubmit(event)" class="flex gap-2">
+            <input type="text" id="chat-input" placeholder="Faça uma pergunta sobre o edital em foco..." class="flex-1 px-5 py-3 bg-[#F4F6F9] border border-transparent focus:border-brand-lime focus:bg-white rounded-full text-xs outline-none transition">
+            <button type="submit" class="w-11 h-11 bg-brand-lime hover:bg-brand-limeHover text-brand-dark rounded-full flex items-center justify-center shrink-0 shadow-sm transition">
+              <i data-lucide="send" class="w-4 h-4"></i>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ==================== VIEW 4: RELATÓRIOS E PDFS ==================== -->
+      <section id="view-relatorios" class="space-y-4 hidden animate-fadeIn">
+        <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-brand-border/80">
+          <div>
+            <h3 class="font-bold text-sm text-brand-dark">Galeria de Editais e Anexos Salvos</h3>
+            <p class="text-xs text-brand-subtle">Arquivos persistidos no diretório seguro do aplicativo</p>
+          </div>
+          <button onclick="reloadFiles()" class="px-3.5 py-2 bg-[#F4F6F9] hover:bg-brand-lime rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Recarregar Arquivos</span>
+          </button>
+        </div>
+
+        <!-- Grade de Arquivos -->
+        <div class="grid grid-cols-2 gap-4">
+          <!-- Arquivo 1 -->
+          <div class="bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex items-start justify-between">
+            <div class="flex items-start gap-3.5">
+              <div class="w-10 h-10 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 font-black text-xs">
+                PDF
+              </div>
+              <div class="space-y-0.5">
+                <h4 class="text-xs font-bold text-brand-dark truncate max-w-xs">1_EDITAL_CANARANA_CASA_LAR.pdf</h4>
+                <p class="text-[10px] text-brand-subtle font-medium">CANARANA - MT • 1.35 MB • 38 Páginas</p>
+                <span class="inline-block text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.2 rounded mt-1">Auditado via PageIndex</span>
+              </div>
+            </div>
+            <div class="flex gap-1.5">
+              <button onclick="openPDF('1_EDITAL_CANARANA_CASA_LAR.pdf')" class="p-2 hover:bg-[#F4F6F9] rounded-xl text-brand-dark transition" title="Abrir Documento">
+                <i data-lucide="external-link" class="w-4 h-4"></i>
+              </button>
+              <button onclick="sendToWhatsApp('Canarana-105')" class="p-2 hover:bg-green-50 rounded-xl text-green-600 transition" title="Enviar Resumo no WhatsApp">
+                <i data-lucide="share-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Arquivo 2 -->
+          <div class="bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex items-start justify-between">
+            <div class="flex items-start gap-3.5">
+              <div class="w-10 h-10 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 font-black text-xs">
+                PDF
+              </div>
+              <div class="space-y-0.5">
+                <h4 class="text-xs font-bold text-brand-dark truncate max-w-xs">PE_036_2026_SOFTWARE_SAUDE.pdf</h4>
+                <p class="text-[10px] text-brand-subtle font-medium">PEIXOTO DE AZEVEDO - MT • 1.43 MB</p>
+                <span class="inline-block text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.2 rounded mt-1">Auditado via PageIndex</span>
+              </div>
+            </div>
+            <div class="flex gap-1.5">
+              <button onclick="openPDF('PE_036_2026_SOFTWARE_SAUDE.pdf')" class="p-2 hover:bg-[#F4F6F9] rounded-xl text-brand-dark transition" title="Abrir Documento">
+                <i data-lucide="external-link" class="w-4 h-4"></i>
+              </button>
+              <button onclick="sendToWhatsApp('Peixoto-036')" class="p-2 hover:bg-green-50 rounded-xl text-green-600 transition" title="Enviar Resumo no WhatsApp">
+                <i data-lucide="share-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ==================== MODAL DE CONFIGURAÇÃO DO RADAR ==================== -->
+  <div id="modal-config" class="fixed inset-0 bg-brand-dark/40 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white w-full max-w-lg rounded-3xl p-6 shadow-xl border border-brand-border space-y-5 animate-fadeIn">
+      <div class="flex justify-between items-center border-b border-brand-border pb-3">
+        <div>
+          <h3 class="font-bold text-base text-brand-dark">Configuração do Radar OaaS</h3>
+          <p class="text-xs text-brand-subtle">Personalize os filtros de busca no PNCP</p>
+        </div>
+        <button onclick="closeRadarConfig()" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-brand-subtle">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-bold text-brand-dark block mb-1.5">Estado / UF Alvo</label>
+          <input type="text" id="cfg-uf" value="MT" class="w-full px-4 py-2.5 bg-[#F4F6F9] border border-brand-border rounded-xl text-xs font-semibold outline-none focus:border-brand-lime uppercase">
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-brand-dark block mb-1.5">Palavras-Chave do Nicho</label>
+          <div class="flex gap-2 mb-2">
+            <input type="text" id="cfg-new-tag" placeholder="Ex: ar condicionado, notebook..." class="flex-1 px-4 py-2 bg-[#F4F6F9] border border-brand-border rounded-xl text-xs outline-none focus:border-brand-lime">
+            <button onclick="addTag()" class="px-4 py-2 bg-brand-dark text-white rounded-xl text-xs font-bold">Adicionar</button>
+          </div>
+          <div id="tags-container" class="flex flex-wrap gap-1.5">
+            <span class="px-2.5 py-1 bg-brand-lime/40 text-brand-dark rounded-full text-xs font-semibold flex items-center gap-1">
+              construção civil <button onclick="this.parentElement.remove()" class="text-xs font-bold">&times;</button>
+            </span>
+            <span class="px-2.5 py-1 bg-brand-lime/40 text-brand-dark rounded-full text-xs font-semibold flex items-center gap-1">
+              software <button onclick="this.parentElement.remove()" class="text-xs font-bold">&times;</button>
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-brand-dark block mb-1.5">Telefone WhatsApp (para Alertas)</label>
+          <input type="text" id="cfg-whatsapp" placeholder="(65) 99999-9999" class="w-full px-4 py-2.5 bg-[#F4F6F9] border border-brand-border rounded-xl text-xs outline-none focus:border-brand-lime">
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-brand-border flex justify-end gap-2">
+        <button onclick="closeRadarConfig()" class="px-4 py-2 rounded-xl text-xs font-bold text-brand-subtle hover:bg-gray-100">Cancelar</button>
+        <button onclick="saveRadarConfig()" class="px-5 py-2 bg-brand-lime text-brand-dark rounded-xl text-xs font-black shadow-sm">Salvar Preferências</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts de Roteamento e Interação -->
+  <script>
+    // Inicialização dos ícones Lucide
+    lucide.createIcons();
+
+    // Roteamento de Telas (SPA)
+    function navigate(viewName) {
+      const views = ['home', 'editais', 'chatbot', 'relatorios'];
+      views.forEach(v => {
+        const viewEl = document.getElementById(`view-${v}`);
+        const navEl = document.getElementById(`nav-${v}`);
+        if (viewEl) viewEl.classList.add('hidden');
+        if (navEl) navEl.classList.remove('active-nav');
+      });
+
+      const targetView = document.getElementById(`view-${viewName}`);
+      const targetNav = document.getElementById(`nav-${viewName}`);
+      if (targetView) targetView.classList.remove('hidden');
+      if (targetNav) targetNav.classList.add('active-nav');
+
+      // Títulos dinâmicos
+      const titleEl = document.getElementById('page-title');
+      const subEl = document.getElementById('page-subtitle');
+      if (viewName === 'home') {
+        titleEl.textContent = 'Radar de Oportunidades';
+        subEl.textContent = 'Monitoramento ativo no Portal Nacional de Contratações Públicas';
+      } else if (viewName === 'editais') {
+        titleEl.textContent = 'Editais PNCP Auditados';
+        subEl.textContent = 'Análise de conformidade e qualificação técnica via PageIndex';
+      } else if (viewName === 'chatbot') {
+        titleEl.textContent = 'Chatbot Jurídico IA';
+        subEl.textContent = 'Interrogatório de cláusulas, termos de referência e sanções';
+      } else if (viewName === 'relatorios') {
+        titleEl.textContent = 'Relatórios & PDFs Salvos';
+        subEl.textContent = 'Documentos locais persistidos sem dependência externa';
+      }
+    }
+
+    // Modal de Configurações
+    function openRadarConfig() {
+      document.getElementById('modal-config').classList.remove('hidden');
+    }
+    function closeRadarConfig() {
+      document.getElementById('modal-config').classList.add('hidden');
+    }
+    function addTag() {
+      const input = document.getElementById('cfg-new-tag');
+      const val = input.value.trim();
+      if (!val) return;
+      const container = document.getElementById('tags-container');
+      const span = document.createElement('span');
+      span.className = 'px-2.5 py-1 bg-brand-lime/40 text-brand-dark rounded-full text-xs font-semibold flex items-center gap-1';
+      span.innerHTML = `${val} <button onclick="this.parentElement.remove()" class="text-xs font-bold">&times;</button>`;
+      container.appendChild(span);
+      input.value = '';
+    }
+    function saveRadarConfig() {
+      closeRadarConfig();
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.salvar_configuracoes({
+          uf: document.getElementById('cfg-uf').value,
+          whatsapp: document.getElementById('cfg-whatsapp').value
+        });
+      }
+    }
+
+    // Gatilho de Busca no PNCP via Python / PyWebView
+    function triggerSearchPNCP() {
+      const btn = document.getElementById('btn-search-pncp');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = `<span class="animate-spin inline-block mr-1">⟳</span> VARRENDO PNCP...`;
+      btn.disabled = true;
+
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.buscar_licitacoes('MT', '').then(res => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          navigate('editais');
+        }).catch(err => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        });
+      } else {
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          navigate('editais');
+        }, 1200);
+      }
+    }
+
+    // Ações de Arquivo e Chat
+    function openPDF(filename) {
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.abrir_pdf(filename);
+      } else {
+        alert('Abrindo documento: ' + filename);
+      }
+    }
+    function openChatWithEdital(editalId) {
+      const select = document.getElementById('chat-edital-select');
+      if (select) select.value = editalId;
+      navigate('chatbot');
+    }
+    function sendQuickPrompt(text) {
+      document.getElementById('chat-input').value = text;
+      handleChatSubmit(new Event('submit'));
+    }
+    function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const container = document.getElementById('chat-messages');
+      const userBubble = document.createElement('div');
+      userBubble.className = 'flex gap-3 max-w-xl ml-auto justify-end';
+      userBubble.innerHTML = `<div class="bg-brand-lime text-brand-dark p-4 rounded-3xl text-xs font-medium shadow-sm">${text}</div>`;
+      container.appendChild(userBubble);
+      input.value = '';
+      container.scrollTop = container.scrollHeight;
+
+      if (window.pywebview && window.pywebview.api) {
+        const editalId = document.getElementById('chat-edital-select').value;
+        window.pywebview.api.perguntar_juridico(editalId, text).then(reply => {
+          renderAiMessage(reply);
+        });
+      }
+    }
+    function renderAiMessage(content) {
+      const container = document.getElementById('chat-messages');
+      const aiBubble = document.createElement('div');
+      aiBubble.className = 'flex gap-3 max-w-2xl';
+      aiBubble.innerHTML = `
+        <div class="w-7 h-7 rounded-full bg-brand-dark text-white flex items-center justify-center text-xs shrink-0 font-bold">Z</div>
+        <div class="bg-[#F4F6F9] p-4 rounded-3xl text-xs leading-relaxed text-brand-dark space-y-1">${content}</div>
+      `;
+      container.appendChild(aiBubble);
+      container.scrollTop = container.scrollHeight;
+    }
+    function sendToWhatsApp(editalId) {
+      alert('Relatório OaaS preparado para envio no WhatsApp do cliente cadastrado.');
+    }
+    function reloadFiles() {
+      lucide.createIcons();
+    }
+  </script>
+</body>
+</html>

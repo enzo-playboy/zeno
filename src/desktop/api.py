@@ -343,3 +343,128 @@ class DesktopAPI:
     def chat_perguntar(self, pergunta: str, numero_controle_pncp: Optional[str] = None) -> Dict[str, Any]:
         """Envia mensagem ao Chatbot ReAct equipado com as tools MCP."""
         return self.chat_assistant.responder(pergunta=pergunta, numero_controle_pncp=numero_controle_pncp)
+
+    # ==========================================================================
+    # MÉTODOS DA PONTE PYWEBVIEW (CHAMADOS PELO JAVASCRIPT FRONT-END)
+    # ==========================================================================
+
+    def buscar_licitacoes(self, uf: str = "MT", termo: str = "") -> Dict[str, Any]:
+        """
+        Chamado pelo JS: window.pywebview.api.buscar_licitacoes(uf, termo)
+        Executa varredura e auditoria via Tool MCP com persistência no SQLite.
+        """
+        logger.info(f"Ponte PyWebView: buscar_licitacoes(uf='{uf}', termo='{termo}')")
+        return self.mcp_buscar_e_auditar_licitacoes(uf=uf, termo_busca=termo, limite=5)
+
+    def obter_metricas(self) -> Dict[str, Any]:
+        """
+        Chamado pelo JS: window.pywebview.api.obter_metricas()
+        Retorna métricas consolidadas dos editais para os cards de estatísticas.
+        """
+        logger.info("Ponte PyWebView: obter_metricas()")
+        m = self.mcp_obter_metricas_dashboard()
+        return {
+            "total_editais": m.get("total_editais_auditados", 0),
+            "volume_total": m.get("volume_total_disputa", 0.0),
+            "score_medio": m.get("score_medio", 0.0),
+            "alta_aderencia": m.get("alta_aderencia", 0),
+            "taxa_aproveitamento": m.get("taxa_aproveitamento", "0%"),
+            "distribuicao_semanal": m.get("distribuicao_semanal", []),
+            "aderencia_por_nicho": m.get("aderencia_por_nicho", {}),
+            "raw": m
+        }
+
+    def abrir_pdf(self, filename: str) -> Dict[str, Any]:
+        """
+        Chamado pelo JS: window.pywebview.api.abrir_pdf(filename)
+        Localiza o PDF no disco e abre no visualizador nativo do sistema operacional.
+        """
+        logger.info(f"Ponte PyWebView: abrir_pdf('{filename}')")
+        try:
+            p = Path(filename)
+            if not p.is_absolute() or not p.exists():
+                pasta_downloads = get_downloads_dir()
+                candidato = pasta_downloads / filename
+                if candidato.exists():
+                    p = candidato
+                else:
+                    # Busca por correspondência parcial de nome no diretório seguro de downloads
+                    arquivos_encontrados = list(pasta_downloads.glob(f"*{filename}*"))
+                    if arquivos_encontrados:
+                        p = arquivos_encontrados[0]
+                    else:
+                        # Se não encontrar pelo nome exato, tenta abrir o primeiro PDF disponível
+                        todos_pdfs = list(pasta_downloads.glob("*.pdf"))
+                        if todos_pdfs:
+                            p = todos_pdfs[0]
+                        else:
+                            return {"status": "erro", "mensagem": f"Nenhum arquivo PDF encontrado em {pasta_downloads}"}
+            return self.abrir_arquivo_pdf(str(p))
+        except Exception as e:
+            logger.error(f"Erro ao abrir PDF: {e}")
+            return {"status": "erro", "mensagem": str(e)}
+
+    def perguntar_juridico(self, pncp_id: str, pergunta: str) -> str:
+        """
+        Chamado pelo JS: window.pywebview.api.perguntar_juridico(pncp_id, pergunta)
+        Consulta os termos de referência e cláusulas de habilitação via IA com citações de página.
+        """
+        logger.info(f"Ponte PyWebView: perguntar_juridico(pncp_id='{pncp_id}', pergunta='{pergunta}')")
+        try:
+            edital_alvo = pncp_id
+            if pncp_id:
+                # Mapeia apelidos da interface para o número de controle PNCP real no SQLite
+                editais = self.repo.listar_editais()
+                for ed in editais:
+                    if pncp_id.lower() in ed["numero_controle_pncp"].lower() or pncp_id.lower() in ed["orgao"].lower():
+                        edital_alvo = ed["numero_controle_pncp"]
+                        break
+
+            res = self.chat_assistant.responder(pergunta=pergunta, numero_controle_pncp=edital_alvo)
+            if isinstance(res, dict):
+                resposta = res.get("resposta", "")
+            else:
+                resposta = str(res)
+            return resposta.replace("\n", "<br>")
+        except Exception as e:
+            logger.error(f"Erro em perguntar_juridico: {e}")
+            return f"Erro ao processar consulta jurídica: {str(e)}"
+
+    def salvar_configuracoes(self, config_json: Any) -> Dict[str, Any]:
+        """
+        Chamado pelo JS: window.pywebview.api.salvar_configuracoes(config_json)
+        Atualiza as preferências do cliente (UF, palavras-chave, WhatsApp).
+        """
+        logger.info(f"Ponte PyWebView: salvar_configuracoes({config_json})")
+        try:
+            if isinstance(config_json, str):
+                data = json.loads(config_json)
+            elif isinstance(config_json, dict):
+                data = config_json
+            else:
+                data = {}
+
+            cfg_dict = {}
+            if "uf" in data and data["uf"]:
+                cfg_dict["uf_target"] = data["uf"]
+            elif "uf_target" in data and data["uf_target"]:
+                cfg_dict["uf_target"] = data["uf_target"]
+
+            if "whatsapp" in data and data["whatsapp"]:
+                cfg_dict["whatsapp_number"] = data["whatsapp"]
+            elif "whatsapp_number" in data and data["whatsapp_number"]:
+                cfg_dict["whatsapp_number"] = data["whatsapp_number"]
+
+            if "keywords" in data and data["keywords"]:
+                cfg_dict["keywords"] = data["keywords"]
+            elif "palavras_chave" in data and data["palavras_chave"]:
+                cfg_dict["keywords"] = data["palavras_chave"]
+
+            if "client_name" in data and data["client_name"]:
+                cfg_dict["client_name"] = data["client_name"]
+
+            return self.salvar_configuracoes_cliente(cfg_dict)
+        except Exception as e:
+            logger.error(f"Erro em salvar_configuracoes: {e}")
+            return {"status": "erro", "mensagem": str(e)}
+

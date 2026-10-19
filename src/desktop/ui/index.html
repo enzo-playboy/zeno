@@ -3,2050 +3,791 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Zeno Radar — Inteligência e Monitoramento OaaS de Licitações</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg-canvas: #ebeef2;
-      --bg-app: #f4f6f9;
-      --bg-card: #ffffff;
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --text-dim: #94a3b8;
-      
-      /* Cores Temáticas Neon Lime & Accent */
-      --neon-lime: #B8FF01;
-      --neon-lime-hover: #a3e600;
-      --neon-lime-soft: #f4fed2;
-      --accent-blue: #60a5fa;
-      --accent-blue-soft: #93c5fd;
-      
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-
-      --border: rgba(0, 0, 0, 0.06);
-      --border-focus: rgba(184, 255, 1, 0.7);
-      --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.04);
-      --shadow-card: 0 8px 24px rgba(15, 23, 42, 0.04);
-      --shadow-float: 0 20px 40px rgba(15, 23, 42, 0.08);
-
-      --radius-app: 28px;
-      --radius-card: 20px;
-      --radius-pill: 9999px;
+  <title>Zeno Radar — Inteligência em Licitações</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              lime: '#B8FF01',
+              limeHover: '#a3e600',
+              dark: '#121417',
+              surface: '#FFFFFF',
+              bg: '#F4F6F9',
+              subtle: '#6B7280',
+              border: '#E5E7EB',
+              accentDark: '#1E232B'
+            }
+          },
+          borderRadius: {
+            '4xl': '2rem',
+          }
+        }
+      }
     }
-
-    * {
-      box-sizing: border-box;
+  </script>
+  <style>
+    /* Reset total para eliminar qualquer vão na tela nativa do Windows */
+    html, body {
+      width: 100vw;
+      height: 100vh;
       margin: 0;
       padding: 0;
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    body {
-      background-color: var(--bg-canvas);
-      background-image: radial-gradient(circle at 10% 20%, rgba(184, 255, 1, 0.1) 0%, transparent 40%),
-                        radial-gradient(circle at 90% 80%, rgba(96, 165, 250, 0.08) 0%, transparent 40%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      color: var(--text-main);
-    }
-
-    .app-window {
-      width: 100%;
-      max-width: 1360px;
-      height: 92vh;
-      min-height: 740px;
-      background: var(--bg-app);
-      border-radius: var(--radius-app);
-      box-shadow: var(--shadow-float);
-      display: flex;
       overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.8);
-      position: relative;
-    }
-
-    /* SIDEBAR */
-    .sidebar {
-      width: 250px;
-      background: #ffffff;
-      padding: 24px 18px;
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-
-    .brand-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding-left: 8px;
-      margin-bottom: 28px;
-    }
-
-    .brand-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 12px;
-      background: #0f172a;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--neon-lime);
-      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
-    }
-
-    .brand-title {
-      font-size: 1.15rem;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      color: #0f172a;
-    }
-
-    .nav-menu {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      flex: 1;
-    }
-
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      color: var(--text-muted);
-      font-size: 0.92rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      background-color: #F4F6F9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       user-select: none;
     }
 
-    .nav-item:hover {
-      background: #f8fafc;
-      color: var(--text-main);
-    }
-
-    .nav-item.active {
-      background: #f1f5f9;
-      color: #0f172a;
-      font-weight: 700;
-    }
-
-    .nav-badge {
-      margin-left: auto;
-      background: #e2e8f0;
-      color: #0f172a;
-      font-size: 0.75rem;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: var(--radius-pill);
-    }
-
-    .nav-item.active .nav-badge {
-      background: var(--accent-blue);
-      color: #ffffff;
-    }
-
-    /* Card Inferior na Sidebar */
-    .license-card {
-      background: #f8fafc;
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: auto;
-    }
-
-    .license-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .license-glow-icon {
-      width: 30px;
-      height: 30px;
-      border-radius: 10px;
-      background: var(--neon-lime);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #0f172a;
-    }
-
-    .license-title {
-      font-size: 0.85rem;
-      font-weight: 700;
-    }
-
-    .license-desc {
-      font-size: 0.74rem;
-      color: var(--text-muted);
-    }
-
-    /* CONTEÚDO PRINCIPAL */
-    .main-wrapper {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      position: relative;
-    }
-
-    /* TOP BAR */
-    .top-bar {
-      padding: 20px 32px 14px 32px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-shrink: 0;
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .page-title {
-      font-size: 1.6rem;
-      font-weight: 800;
-      letter-spacing: -0.8px;
-    }
-
-    .status-badge-btn {
-      background: rgba(96, 165, 250, 0.15);
-      color: #2563eb;
-      font-size: 0.78rem;
-      font-weight: 700;
-      padding: 6px 12px;
-      border-radius: var(--radius-pill);
-      border: 1px solid rgba(96, 165, 250, 0.3);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s;
-    }
-
-    .status-badge-btn:hover {
-      background: rgba(96, 165, 250, 0.25);
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    /* Botão Primário Verde-Limão de Busca */
-    .btn-buscar-licitacoes {
-      background: var(--neon-lime);
-      color: #0f172a;
-      border: 1px solid rgba(0, 0, 0, 0.05);
-      padding: 9px 18px;
-      border-radius: var(--radius-pill);
-      font-size: 0.88rem;
-      font-weight: 800;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 4px 14px rgba(184, 255, 1, 0.4);
-      transition: all 0.2s;
-    }
-
-    .btn-buscar-licitacoes:hover {
-      background: var(--neon-lime-hover);
-      transform: translateY(-1px);
-    }
-
-    .search-bar {
-      background: #ffffff;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-pill);
-      padding: 8px 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 220px;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .search-bar input {
-      border: none;
-      background: transparent;
-      outline: none;
-      font-size: 0.88rem;
-      width: 100%;
-      color: var(--text-main);
-    }
-
-    .profile-pill {
-      background: #ffffff;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-pill);
-      padding: 4px 14px 4px 6px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: var(--shadow-sm);
-      cursor: pointer;
-    }
-
-    .avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--neon-lime) 0%, var(--accent-blue) 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.78rem;
-      font-weight: 800;
-      color: #0f172a;
-    }
-
-    .profile-info {
-      font-size: 0.82rem;
-      line-height: 1.2;
-    }
-
-    .profile-name {
-      font-weight: 700;
-    }
-
-    .profile-role {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-    }
-
-    /* BANNER DE PROGRESSO DA VARREDURA EM TEMPO REAL */
-    .scan-banner {
-      margin: 0 32px 14px 32px;
-      background: #0f172a;
-      color: #ffffff;
-      padding: 12px 20px;
-      border-radius: 14px;
-      display: none;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      box-shadow: var(--shadow-card);
-      animation: fadeIn 0.3s;
-    }
-
-    .scan-banner.active {
-      display: flex;
-    }
-
-    .scan-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 0.86rem;
-      font-weight: 600;
-    }
-
-    .spinner {
-      width: 18px;
-      height: 18px;
-      border: 2px solid rgba(184, 255, 1, 0.3);
-      border-top-color: var(--neon-lime);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    .scan-progress-bar {
-      width: 180px;
-      height: 6px;
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .scan-progress-fill {
-      height: 100%;
-      background: var(--neon-lime);
-      width: 20%;
-      transition: width 0.4s ease;
-    }
-
-    /* VIEWS CONTAINER (SPA) */
-    .view-container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0 32px 28px 32px;
-      display: none;
-    }
-
-    .view-container.active {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    /* VIEW 1: HOME (CARDS + GRÁFICOS) */
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 18px;
-    }
-
-    .kpi-card {
-      background: var(--bg-card);
-      border-radius: var(--radius-card);
-      padding: 20px;
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-card);
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      transition: transform 0.2s;
-    }
-
-    .kpi-card:hover {
-      transform: translateY(-2px);
-    }
-
-    .kpi-card.lime-highlight {
-      background: var(--neon-lime);
-      border: 1px solid rgba(0, 0, 0, 0.05);
-    }
-
-    .kpi-card.lime-highlight .kpi-icon-pill {
-      background: #0f172a;
-      color: var(--neon-lime);
-    }
-
-    .kpi-card.lime-highlight .kpi-label {
-      color: rgba(15, 23, 42, 0.8);
-      font-weight: 600;
-    }
-
-    .kpi-card.lime-highlight .kpi-value {
-      color: #0f172a;
-    }
-
-    .kpi-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .kpi-icon-pill {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: #f1f5f9;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-main);
-    }
-
-    .btn-arrow-corner {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: inherit;
-      background: rgba(255, 255, 255, 0.5);
-    }
-
-    .kpi-value {
-      font-size: 1.75rem;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-    }
-
-    .kpi-label {
-      font-size: 0.84rem;
-      color: var(--text-muted);
-    }
-
-    .dashboard-body-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 20px;
-    }
-
-    .content-panel {
-      background: var(--bg-card);
-      border-radius: var(--radius-card);
-      padding: 24px;
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-card);
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-
-    .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .panel-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* Gráfico Dinâmico em Barras SVG */
-    .chart-container {
-      height: 180px;
-      display: flex;
-      align-items: flex-end;
-      gap: 16px;
-      padding-top: 10px;
-      position: relative;
-    }
-
-    .chart-bar-group {
-      flex: 1;
-      height: 100%;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 8px;
-      position: relative;
-    }
-
-    .chart-bar {
-      width: 14px;
-      border-radius: 8px 8px 0 0;
-      transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
-    }
-
-    .chart-bar.blue {
-      background: var(--accent-blue-soft);
-    }
-
-    .chart-bar.lime {
-      background: var(--neon-lime);
-    }
-
-    .chart-bar:hover::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      bottom: 105%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #0f172a;
-      color: #ffffff;
-      padding: 4px 8px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      border-radius: 6px;
-      white-space: nowrap;
-      z-index: 10;
-    }
-
-    .chart-labels {
-      display: flex;
-      justify-content: space-between;
-      color: var(--text-dim);
-      font-size: 0.78rem;
-      font-weight: 600;
-      margin-top: 6px;
-      padding: 0 10px;
-    }
-
-    /* Bolhas de Distribuição */
-    .bubble-chart-wrapper {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 160px;
-      position: relative;
-    }
-
-    .bubble-circle {
-      border-radius: 50%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      position: absolute;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .bubble-1 {
-      width: 105px;
-      height: 105px;
-      background: var(--neon-lime);
-      color: #0f172a;
-      left: 15%;
-      top: 15%;
-    }
-
-    .bubble-2 {
-      width: 85px;
-      height: 85px;
-      background: var(--accent-blue-soft);
-      color: #0f172a;
-      right: 20%;
-      top: 25%;
-    }
-
-    .bubble-3 {
-      width: 65px;
-      height: 65px;
-      background: #f1f5f9;
-      color: #0f172a;
-      bottom: 5%;
-      left: 45%;
-      border: 1px solid var(--border);
-    }
-
-    .bubble-val {
-      font-size: 1.25rem;
-      line-height: 1;
-    }
-
-    .bubble-lbl {
-      font-size: 0.65rem;
-      font-weight: 600;
-      color: var(--text-muted);
-    }
-
-    .target-bars {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-top: 8px;
-    }
-
-    .target-row {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .target-info {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--text-muted);
-    }
-
-    .target-track {
-      width: 100%;
-      height: 6px;
-      background: #f1f5f9;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .target-fill {
-      height: 100%;
-      border-radius: 4px;
-    }
-
-    /* TABELA DE EDITAIS COM BORDER-RADIUS: 20PX */
-    .table-container {
-      width: 100%;
-      background: #ffffff;
-      border-radius: 20px;
-      border: 1px solid var(--border);
-      overflow: hidden;
-      box-shadow: var(--shadow-card);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.88rem;
-    }
-
-    th {
-      text-align: left;
-      padding: 14px 16px;
-      background: #f8fafc;
-      color: var(--text-muted);
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    td {
-      padding: 16px;
-      border-bottom: 1px solid #f8fafc;
-      vertical-align: middle;
-    }
-
-    tr:hover td {
-      background: #fafbfe;
-    }
-
-    .score-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 12px;
-      border-radius: var(--radius-pill);
-      font-weight: 800;
-      font-size: 0.82rem;
-    }
-
-    .score-high {
-      background: var(--neon-lime-soft);
-      color: #3f6212;
-      border: 1px solid #B8FF01;
-    }
-
-    .score-med {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .score-low {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .btn-action-outline {
-      background: #ffffff;
-      border: 1px solid var(--border);
-      padding: 7px 14px;
-      border-radius: 10px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: var(--text-main);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-action-outline:hover {
-      background: #0f172a;
-      color: #ffffff;
-    }
-
-    /* VIEW 3: CHATBOT JURÍDICO IA */
-    .chat-view-container {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      background: #ffffff;
-      border-radius: 24px;
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-card);
-      overflow: hidden;
-    }
-
-    .chat-view-header {
-      padding: 18px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      background: #fafbfe;
-    }
-
-    .chat-selector-wrap {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 0.88rem;
-      font-weight: 700;
-    }
-
-    .chat-selector-wrap select {
-      padding: 8px 14px;
-      border-radius: var(--radius-pill);
-      border: 1px solid var(--border);
-      background: #ffffff;
-      font-size: 0.85rem;
-      font-weight: 600;
-      outline: none;
-      color: var(--text-main);
-    }
-
-    .chat-view-messages {
-      flex: 1;
-      padding: 24px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-
-    .chat-msg {
-      display: flex;
-      flex-direction: column;
-      max-width: 80%;
-      gap: 6px;
-    }
-
-    .chat-msg.bot {
-      align-self: flex-start;
-    }
-
-    .chat-msg.user {
-      align-self: flex-end;
-    }
-
-    .chat-bubble {
-      padding: 14px 18px;
-      border-radius: 20px;
-      font-size: 0.9rem;
-      line-height: 1.5;
-    }
-
-    .chat-msg.bot .chat-bubble {
-      background: #f1f5f9;
-      color: #0f172a;
-      border-top-left-radius: 4px;
-    }
-
-    .chat-msg.user .chat-bubble {
-      background: #0f172a;
-      color: #ffffff;
-      border-top-right-radius: 4px;
-    }
-
-    .citation-badge {
-      display: inline-block;
-      background: #dbeafe;
-      color: #1e40af;
-      padding: 2px 7px;
-      border-radius: 6px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.74rem;
-      font-weight: 700;
-      margin: 2px 0;
-    }
-
-    .quick-chips-bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 12px 24px;
-      background: #f8fafc;
-      border-top: 1px solid var(--border);
-    }
-
-    .chip-btn {
-      background: #ffffff;
-      border: 1px solid var(--border);
-      padding: 7px 14px;
-      border-radius: var(--radius-pill);
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .chip-btn:hover {
-      background: var(--neon-lime);
-      color: #0f172a;
-      border-color: var(--neon-lime);
-    }
-
-    .chat-view-input-area {
-      padding: 16px 24px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      gap: 12px;
-      background: #ffffff;
-    }
-
-    .chat-view-input-area input {
-      flex: 1;
-      border: 1px solid var(--border);
-      background: #f8fafc;
-      border-radius: var(--radius-pill);
-      padding: 12px 20px;
-      outline: none;
-      font-size: 0.9rem;
-    }
-
-    .chat-view-input-area input:focus {
-      border-color: var(--border-focus);
-      background: #ffffff;
-    }
-
-    .chat-send-circle {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: #0f172a;
-      color: var(--neon-lime);
-      border: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.2s;
-    }
-
-    .chat-send-circle:hover {
-      transform: scale(1.05);
-    }
-
-    /* VIEW 4: GALERIA DE RELATÓRIOS & PDFS */
-    .files-gallery-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 18px;
-    }
-
-    .file-card {
-      background: #ffffff;
-      border-radius: 20px;
-      border: 1px solid var(--border);
-      padding: 20px;
-      box-shadow: var(--shadow-card);
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      transition: transform 0.2s;
-    }
-
-    .file-card:hover {
-      transform: translateY(-2px);
-    }
-
-    .file-card-top {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .file-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
-      background: #fee2e2;
-      color: #b91c1c;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 0.78rem;
-    }
-
-    .file-icon.md {
-      background: #e0f2fe;
-      color: #0369a1;
-    }
-
-    .file-title {
-      font-size: 0.92rem;
-      font-weight: 700;
-      word-break: break-all;
-    }
-
-    .file-meta {
-      font-size: 0.76rem;
-      color: var(--text-muted);
-    }
-
-    .file-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: auto;
-      padding-top: 8px;
-      border-top: 1px solid #f8fafc;
-    }
-
-    .btn-file-action {
-      flex: 1;
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: #f8fafc;
-      font-size: 0.78rem;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.2s;
-    }
-
-    .btn-file-action:hover {
-      background: #0f172a;
-      color: #ffffff;
-    }
-
-    .btn-file-action.whatsapp:hover {
-      background: #25d366;
-      color: #ffffff;
-      border-color: #25d366;
-    }
-
-    /* MODAL DE CONFIGURAÇÃO DE BUSCA DO CLIENTE */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(15, 23, 42, 0.45);
-      backdrop-filter: blur(4px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-    }
-
-    .modal-box {
-      width: 90%;
-      max-width: 640px;
-      max-height: 85vh;
-      background: #ffffff;
-      border-radius: var(--radius-card);
-      box-shadow: var(--shadow-float);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .modal-header {
-      padding: 20px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .modal-content {
-      padding: 24px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .form-group label {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .form-group input, .form-group textarea, .form-group select {
-      padding: 10px 14px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      font-size: 0.88rem;
-      outline: none;
-      background: #f8fafc;
-    }
-
-    .form-group input:focus, .form-group textarea:focus {
-      background: #ffffff;
-      border-color: var(--border-focus);
-    }
-
-    .btn-save-cfg {
-      background: var(--neon-lime);
-      color: #0f172a;
-      border: none;
-      padding: 12px;
-      border-radius: 12px;
-      font-size: 0.92rem;
-      font-weight: 800;
-      cursor: pointer;
-      margin-top: 8px;
-    }
-
-    .btn-save-cfg:hover {
-      background: var(--neon-lime-hover);
-    }
-
-    /* Toast */
-    .toast-msg {
-      position: fixed;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
-      background: #0f172a;
-      color: #ffffff;
-      padding: 12px 24px;
-      border-radius: var(--radius-pill);
-      box-shadow: var(--shadow-float);
-      font-size: 0.88rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      opacity: 0;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 200;
-    }
-
-    .toast-msg.show {
-      transform: translateX(-50%) translateY(0);
-      opacity: 1;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-6px); }
+    /* Scrollbar minimalista */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+
+    /* Animações fluidas */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeInUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes pulseSoft {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.85; }
+    }
+    .pulse-radar {
+      animation: pulseSoft 2.5s infinite ease-in-out;
+    }
+
+    .active-nav {
+      background-color: #FFFFFF !important;
+      color: #121417 !important;
+      font-weight: 600;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.04);
     }
   </style>
 </head>
-<body>
+<body class="flex w-full h-full text-brand-dark antialiased">
 
-  <div class="app-window">
-
-    <!-- SIDEBAR DE NAVEGAÇÃO -->
-    <aside class="sidebar">
-      <div class="brand-header">
-        <div class="brand-icon">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor">
-            <circle cx="12" cy="12" r="10" stroke-width="2"/>
-            <path d="M12 2a10 10 0 0 1 10 10" stroke-width="2"/>
-            <circle cx="12" cy="12" r="4" fill="currentColor"/>
-          </svg>
+  <!-- ==================== SIDEBAR FIXA ==================== -->
+  <aside class="w-64 h-full bg-[#F4F6F9] border-r border-brand-border flex flex-col justify-between p-5 select-none shrink-0">
+    <div>
+      <!-- Brand Logo -->
+      <div class="flex items-center gap-3 px-2 mb-8">
+        <div class="w-10 h-10 rounded-2xl bg-brand-dark flex items-center justify-center text-brand-lime shadow-md shadow-brand-lime/10">
+          <i data-lucide="radar" class="w-5 h-5 pulse-radar"></i>
         </div>
-        <span class="brand-title">ZENO RADAR</span>
+        <div>
+          <span class="text-lg font-black tracking-wider uppercase block">ZENO RADAR</span>
+          <span class="text-[10px] text-brand-subtle tracking-tight font-medium">OaaS Licitações MT</span>
+        </div>
       </div>
 
-      <nav class="nav-menu">
-        <div class="nav-item active" id="nav-home" onclick="switchView('home')">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-          Home
-        </div>
-        <div class="nav-item" id="nav-editais" onclick="switchView('editais')">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          Editais PNCP
-          <span class="nav-badge" id="badge-total-editais">0</span>
-        </div>
-        <div class="nav-item" id="nav-chat" onclick="switchView('chat')">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          Chatbot Jurídico IA
-          <span class="nav-badge" style="background:var(--neon-lime); color:#0f172a;">IA</span>
-        </div>
-        <div class="nav-item" id="nav-relatorios" onclick="switchView('relatorios')">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-          Relatórios & PDFs
-        </div>
-      </nav>
-
-      <!-- Card Inferior de Licença -->
-      <div class="license-card">
-        <div class="license-header">
-          <div class="license-glow-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      <!-- Navigation Menu -->
+      <nav class="space-y-1.5" id="nav-container">
+        <button onclick="navigate('home')" id="nav-home" class="nav-btn active-nav w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm transition-all duration-200 text-brand-subtle hover:text-brand-dark hover:bg-white/60">
+          <div class="flex items-center gap-3">
+            <i data-lucide="home" class="w-4 h-4"></i>
+            <span>Home</span>
           </div>
-          <div>
-            <div class="license-title" id="client-name-display">Cliente Piloto</div>
-            <div class="license-desc">Licença HWID Ativa</div>
-          </div>
-        </div>
-        <button class="btn-buscar-licitacoes" style="width:100%; justify-content:center; padding:9px; font-size:0.82rem;" onclick="abrirConfigModal()">
-          ⚙ Configurar Nicho
         </button>
-      </div>
-    </aside>
 
-    <!-- WRAPPER PRINCIPAL -->
-    <div class="main-wrapper">
+        <button onclick="navigate('editais')" id="nav-editais" class="nav-btn w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm transition-all duration-200 text-brand-subtle hover:text-brand-dark hover:bg-white/60">
+          <div class="flex items-center gap-3">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            <span>Editais PNCP</span>
+          </div>
+          <span id="badge-editais-count" class="text-[11px] font-bold bg-brand-lime/30 text-brand-dark px-2 py-0.5 rounded-full">3</span>
+        </button>
+
+        <button onclick="navigate('chatbot')" id="nav-chatbot" class="nav-btn w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm transition-all duration-200 text-brand-subtle hover:text-brand-dark hover:bg-white/60">
+          <div class="flex items-center gap-3">
+            <i data-lucide="message-square-quote" class="w-4 h-4"></i>
+            <span>Chatbot Jurídico</span>
+          </div>
+          <span class="text-[10px] font-bold bg-brand-lime text-brand-dark px-1.5 py-0.2 rounded-md uppercase tracking-wider">IA</span>
+        </button>
+
+        <button onclick="navigate('relatorios')" id="nav-relatorios" class="nav-btn w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm transition-all duration-200 text-brand-subtle hover:text-brand-dark hover:bg-white/60">
+          <div class="flex items-center gap-3">
+            <i data-lucide="folder-check" class="w-4 h-4"></i>
+            <span>Relatórios & PDFs</span>
+          </div>
+        </button>
+      </nav>
+    </div>
+
+    <!-- User / Organization Badge -->
+    <div class="bg-white p-3.5 rounded-2xl border border-brand-border/80 shadow-sm flex items-center justify-between cursor-pointer hover:border-brand-lime transition" onclick="openRadarConfig()">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-brand-lime flex items-center justify-center font-bold text-xs text-brand-dark">
+          MT
+        </div>
+        <div class="overflow-hidden">
+          <p class="text-xs font-bold truncate">Empresa Piloto MT</p>
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+            <span class="text-[10px] text-brand-subtle">HWID Ativo</span>
+          </div>
+        </div>
+      </div>
+      <i data-lucide="sliders" class="w-4 h-4 text-brand-subtle"></i>
+    </div>
+  </aside>
+
+  <!-- ==================== ÁREA DE CONTEÚDO PRINCIPAL (100% FLUIDA) ==================== -->
+  <main class="flex-1 h-full flex flex-col bg-white overflow-hidden">
+    
+    <!-- Header Superior com Ações -->
+    <header class="h-20 border-b border-brand-border/70 px-8 flex items-center justify-between bg-white shrink-0">
+      <div>
+        <h1 id="page-title" class="text-2xl font-black tracking-tight text-brand-dark">Radar de Oportunidades</h1>
+        <p id="page-subtitle" class="text-xs text-brand-subtle">Monitoramento ativo no Portal Nacional de Contratações Públicas</p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Tag UF -->
+        <button onclick="openRadarConfig()" class="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full text-xs font-bold border border-blue-200 transition flex items-center gap-1.5">
+          <span>UF: MT (PNCP)</span>
+          <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+        </button>
+
+        <!-- Botão Primário: Buscar no PNCP -->
+        <button id="btn-search-pncp" onclick="triggerSearchPNCP()" class="px-4 py-2 bg-brand-lime hover:bg-brand-limeHover text-brand-dark rounded-full text-xs font-black tracking-wide shadow-sm hover:shadow-brand-lime/20 transition flex items-center gap-2">
+          <i data-lucide="search" class="w-3.5 h-3.5"></i>
+          <span>BUSCAR NO PNCP</span>
+        </button>
+
+        <!-- Barra de Busca Rápida -->
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 text-brand-subtle absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+          <input type="text" id="quick-filter" oninput="handleQuickFilter(this.value)" placeholder="Buscar órgão, pregão ou item..." class="w-64 pl-9 pr-4 py-2 bg-[#F4F6F9] border border-transparent focus:border-brand-lime focus:bg-white rounded-full text-xs outline-none transition">
+        </div>
+      </div>
+    </header>
+
+    <!-- Content Body com Scroll Interno Independente -->
+    <div id="content-viewport" class="flex-1 overflow-y-auto p-8 bg-[#F4F6F9]">
       
-      <!-- TOP BAR -->
-      <header class="top-bar">
-        <div class="header-left">
-          <h1 class="page-title" id="top-title">Radar de Oportunidades</h1>
-          <button class="status-badge-btn" id="badge-uf-target" onclick="abrirConfigModal()" title="Clique para alterar Estado e Palavras-chave">
-            UF: MT (PNCP) ⚙
-          </button>
+      <!-- ==================== VIEW 1: HOME (DASHBOARD) ==================== -->
+      <section id="view-home" class="space-y-6 animate-fadeIn">
+        <!-- Cards de Métricas Reais -->
+        <div class="grid grid-cols-4 gap-5">
+          <!-- Card 1: Volume -->
+          <div class="bg-brand-lime p-5 rounded-3xl shadow-sm relative overflow-hidden flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+              <span class="text-xs font-bold uppercase tracking-wider text-brand-dark/70">Volume em Disputa</span>
+              <div class="w-7 h-7 rounded-full bg-brand-dark/10 flex items-center justify-center">
+                <i data-lucide="trending-up" class="w-3.5 h-3.5 text-brand-dark"></i>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-2xl font-black text-brand-dark block tracking-tight">R$ 1.674.366,78</span>
+              <span class="text-[11px] font-medium text-brand-dark/80 mt-1 block">Oportunidades em MT</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Score Médio -->
+          <div class="bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+              <span class="text-xs font-bold uppercase tracking-wider text-brand-subtle">Aderência Média</span>
+              <div class="w-7 h-7 rounded-full bg-brand-lime/20 flex items-center justify-center">
+                <i data-lucide="target" class="w-3.5 h-3.5 text-brand-dark"></i>
+              </div>
+            </div>
+            <div class="mt-4">
+              <div class="flex items-baseline gap-1">
+                <span class="text-2xl font-black text-brand-dark">9.0</span>
+                <span class="text-xs text-brand-subtle font-semibold">/10</span>
+              </div>
+              <span class="text-[11px] text-green-600 font-semibold mt-1 block">Alta compatibilidade</span>
+            </div>
+          </div>
+
+          <!-- Card 3: Editais Salvos -->
+          <div class="bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+              <span class="text-xs font-bold uppercase tracking-wider text-brand-subtle">Auditados & Salvos</span>
+              <div class="w-7 h-7 rounded-full bg-[#F4F6F9] flex items-center justify-center">
+                <i data-lucide="file-check" class="w-3.5 h-3.5 text-brand-dark"></i>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-2xl font-black text-brand-dark block tracking-tight" id="metric-total-bids">3</span>
+              <span class="text-[11px] text-brand-subtle mt-1 block">Persistidos no SQLite</span>
+            </div>
+          </div>
+
+          <!-- Card 4: Idempotência -->
+          <div class="bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+              <span class="text-xs font-bold uppercase tracking-wider text-brand-subtle">Status de Licença</span>
+              <div class="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-green-700"></i>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-2xl font-black text-brand-dark block tracking-tight">100%</span>
+              <span class="text-[11px] text-green-600 font-semibold mt-1 block">Hardware Lock Ativo</span>
+            </div>
+          </div>
         </div>
 
-        <div class="header-right">
-          <!-- Botão Primário Verde-Limão de Busca via MCP -->
-          <button class="btn-buscar-licitacoes" id="btn-iniciar-varredura" onclick="acionarBuscaPNCP()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            ⚡ Buscar no PNCP
-          </button>
-
-          <div class="search-bar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="input-search" placeholder="Buscar órgão, pregão ou item..." onkeydown="if(event.key==='Enter') acionarBuscaPNCP(this.value)" oninput="filtrarGeral(this.value)">
-          </div>
-
-          <div class="profile-pill" onclick="abrirConfigModal()">
-            <div class="avatar" id="avatar-letters">ZL</div>
-            <div class="profile-info">
-              <div class="profile-name" id="user-display-name">Operação MT</div>
-              <div class="profile-role">Zeno OaaS Desktop</div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <!-- BANNER DE STATUS DA VARREDURA EM TEMPO REAL -->
-      <div class="scan-banner" id="scan-banner">
-        <div class="scan-info">
-          <div class="spinner"></div>
-          <span id="scan-step-text">Consultando API PNCP (MT)...</span>
-        </div>
-        <div class="scan-progress-bar">
-          <div class="scan-progress-fill" id="scan-progress-fill"></div>
-        </div>
-      </div>
-
-      <!-- ============================================== -->
-      <!-- VIEW 1: HOME (CARDS + GRÁFICO + TABELA RÁPIDA) -->
-      <!-- ============================================== -->
-      <div class="view-container active" id="view-home">
-        
-        <!-- 4 Cards de Métricas -->
-        <section class="kpi-grid">
-          <div class="kpi-card lime-highlight">
-            <div class="kpi-top">
-              <div class="kpi-icon-pill">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-              </div>
-              <div class="btn-arrow-corner">↗</div>
-            </div>
-            <div class="kpi-value" id="kpi-volume">R$ 0,00</div>
-            <div class="kpi-label">Volume Estimado no SQLite</div>
-          </div>
-
-          <div class="kpi-card">
-            <div class="kpi-top">
-              <div class="kpi-icon-pill">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-              </div>
-              <div class="btn-arrow-corner">↗</div>
-            </div>
-            <div class="kpi-value" id="kpi-score">0.0 <span style="font-size:0.9rem; color:var(--text-muted);">/ 10</span></div>
-            <div class="kpi-label">Score Médio de Aderência</div>
-          </div>
-
-          <div class="kpi-card">
-            <div class="kpi-top">
-              <div class="kpi-icon-pill">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-              </div>
-              <div class="btn-arrow-corner">↗</div>
-            </div>
-            <div class="kpi-value" id="kpi-total-editais">0</div>
-            <div class="kpi-label">Editais Registrados</div>
-          </div>
-
-          <div class="kpi-card">
-            <div class="kpi-top">
-              <div class="kpi-icon-pill">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              </div>
-              <div class="btn-arrow-corner">↗</div>
-            </div>
-            <div class="kpi-value" id="kpi-taxa">0%</div>
-            <div class="kpi-label">Alta Compatibilidade (>= 7.5)</div>
-          </div>
-        </section>
-
-        <!-- Gráfico e Distribuição Baseados em Dados Reais -->
-        <section class="dashboard-body-grid">
-          <div class="content-panel">
-            <div class="panel-header">
-              <div class="panel-title">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                Volume Financeiro dos Editais Auditados
-              </div>
-            </div>
-            <div class="chart-container" id="chart-bars-wrapper">
-              <!-- Inserido dinamicamente via JS -->
-            </div>
-            <div class="chart-labels" id="chart-labels-wrapper"></div>
-          </div>
-
-          <div class="content-panel">
-            <div class="panel-header">
-              <div class="panel-title">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 10 10 0 0 0 0-20"/></svg>
-                Categorias & Aderência ao Nicho
-              </div>
-            </div>
-            <div class="bubble-chart-wrapper" id="bubble-chart-wrapper">
-              <!-- Bolhas reais calculadas pelo banco -->
-            </div>
-            <div class="target-bars" id="target-bars-wrapper">
-              <!-- Metas reais calculadas pelo banco -->
-            </div>
-          </div>
-        </section>
-
-        <!-- Tabela Resumida -->
-        <section class="content-panel">
-          <div class="panel-header">
-            <div class="panel-title">Editais Recentes no Banco de Dados</div>
-            <button class="btn-action-outline" onclick="switchView('editais')">Ver Todos →</button>
-          </div>
-          <div class="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Controle PNCP</th>
-                  <th>Órgão</th>
-                  <th>Objeto</th>
-                  <th>Valor Estimado</th>
-                  <th>Score</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="home-editais-tbody"></tbody>
-            </table>
-          </div>
-        </section>
-
-      </div>
-
-      <!-- ============================================== -->
-      <!-- VIEW 2: EDITAIS PNCP (TABELA COMPLETA COM ARREDONDAMENTO) -->
-      <!-- ============================================== -->
-      <div class="view-container" id="view-editais">
-        <div class="content-panel">
-          <div class="panel-header">
-            <div class="panel-title">Listagem Completa de Editais Monitorados</div>
-            <div style="display:flex; gap:8px;">
-              <button class="btn-action-outline" onclick="carregarDados()">🔄 Atualizar</button>
-            </div>
-          </div>
-
-          <div class="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Controle PNCP</th>
-                  <th>Órgão / Ente</th>
-                  <th>Objeto Resumido</th>
-                  <th>Data Disputa</th>
-                  <th>Valor Estimado</th>
-                  <th>Score Aderência</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="full-editais-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- ============================================== -->
-      <!-- VIEW 3: CHATBOT JURÍDICO IA (DESIGN UNIFICADO) -->
-      <!-- ============================================== -->
-      <div class="view-container" id="view-chat">
-        <div class="chat-view-container">
-          
-          <div class="chat-view-header">
-            <div style="display:flex; align-items:center; gap:12px;">
-              <div class="brand-icon" style="width:34px; height:34px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
-              </div>
+        <!-- Seção Gráfica e Nichos -->
+        <div class="grid grid-cols-3 gap-5">
+          <!-- Gráfico Semanal -->
+          <div class="col-span-2 bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm">
+            <div class="flex justify-between items-center mb-6">
               <div>
-                <div style="font-weight:800; font-size:1rem;">Zeno Bot — Especialista em Licitações</div>
-                <div style="font-size:0.75rem; color:var(--text-muted);">Auditoria com base na Lei 14.133/2021 e citação exata de páginas [Pág. X]</div>
+                <h3 class="font-bold text-sm text-brand-dark">Volume de Pregões Encontrados</h3>
+                <p class="text-xs text-brand-subtle">Distribuição recente por data de publicação</p>
+              </div>
+              <span class="text-xs font-bold bg-[#F4F6F9] px-3 py-1 rounded-full text-brand-subtle">Mato Grosso</span>
+            </div>
+            <!-- Barras em CSS Flexbox -->
+            <div class="h-44 flex items-end justify-between gap-4 px-2 pt-4 border-b border-brand-border/50">
+              <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                <div class="w-full max-w-[36px] bg-brand-dark/10 rounded-t-xl transition-all duration-500 hover:bg-brand-lime" style="height: 45%;"></div>
+                <span class="text-[10px] text-brand-subtle font-medium">Sem 1</span>
+              </div>
+              <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                <div class="w-full max-w-[36px] bg-brand-dark/10 rounded-t-xl transition-all duration-500 hover:bg-brand-lime" style="height: 65%;"></div>
+                <span class="text-[10px] text-brand-subtle font-medium">Sem 2</span>
+              </div>
+              <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                <div class="w-full max-w-[36px] bg-brand-dark/10 rounded-t-xl transition-all duration-500 hover:bg-brand-lime" style="height: 35%;"></div>
+                <span class="text-[10px] text-brand-subtle font-medium">Sem 3</span>
+              </div>
+              <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                <div class="w-full max-w-[36px] bg-brand-lime rounded-t-xl transition-all duration-500 shadow-sm" style="height: 90%;"></div>
+                <span class="text-[10px] text-brand-dark font-bold">Sem 4 (Atual)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card de Nicho Alvo -->
+          <div class="bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm flex flex-col justify-between">
+            <div>
+              <h3 class="font-bold text-sm text-brand-dark">Aderência por Categoria</h3>
+              <p class="text-xs text-brand-subtle mb-4">Filtrado pelo perfil cadastrado</p>
+              
+              <div class="space-y-3">
+                <div>
+                  <div class="flex justify-between text-xs font-semibold mb-1">
+                    <span>Obras e Infraestrutura</span>
+                    <span class="text-brand-dark font-bold">92%</span>
+                  </div>
+                  <div class="w-full h-2 bg-[#F4F6F9] rounded-full overflow-hidden">
+                    <div class="h-full bg-brand-lime rounded-full" style="width: 92%"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex justify-between text-xs font-semibold mb-1">
+                    <span>TI, Hardware e Redes</span>
+                    <span class="text-brand-dark font-bold">78%</span>
+                  </div>
+                  <div class="w-full h-2 bg-[#F4F6F9] rounded-full overflow-hidden">
+                    <div class="h-full bg-brand-dark rounded-full" style="width: 78%"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex justify-between text-xs font-semibold mb-1">
+                    <span>Materiais de Consumo</span>
+                    <span class="text-brand-dark font-bold">40%</span>
+                  </div>
+                  <div class="w-full h-2 bg-[#F4F6F9] rounded-full overflow-hidden">
+                    <div class="h-full bg-gray-300 rounded-full" style="width: 40%"></div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- Seletor Arredondado (rounded-full) no Topo do Chat -->
-            <div class="chat-selector-wrap" style="background:#f1f5f9; padding:6px 14px; border-radius:9999px; border:1px solid var(--border); display:flex; align-items:center; gap:8px;">
-              <span style="font-size:0.84rem; font-weight:800; color:#0f172a; white-space:nowrap;">📄 Edital em Foco:</span>
-              <select id="chat-edital-select" style="border-radius:9999px; padding:6px 14px; border:1px solid var(--border); font-size:0.83rem; font-weight:700; background:#ffffff; outline:none; color:var(--text-main); cursor:pointer;" onchange="selecionarEditalChat(this.value)">
-                <option value="">[Selecionar Edital do Banco ou Todos]</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Mensagens -->
-          <div class="chat-view-messages" id="chat-messages">
-            <div class="chat-msg bot">
-              <div class="chat-bubble">
-                Olá! Sou o **Zeno Bot**, seu assistente e auditor jurídico de licitações conectado via **MCP**.<br><br>
-                Selecione um edital no topo para analisar cláusulas específicas ou tire dúvidas sobre **prazos de entrega**, **atestados técnicos**, **armadilhas contratuais** e **regras da Nova Lei 14.133/2021**!
-              </div>
-            </div>
-          </div>
-
-          <!-- Chips de Sugestão e Ação Rápida MCP -->
-          <div class="quick-chips-bar">
-            <button class="chip-btn" onclick="enviarPerguntaChip('⏱ Qual o prazo de entrega estipulado neste edital?')">⏱ Prazo de Entrega</button>
-            <button class="chip-btn" onclick="enviarPerguntaChip('📋 Quais são as exigências críticas de habilitação e atestado técnico?')">📋 Atestado Técnico</button>
-            <button class="chip-btn" onclick="enviarPerguntaChip('📊 Quais os índices de liquidez ou balanço patrimonial exigidos?')">📊 Índices Contábeis</button>
-            <button class="chip-btn" onclick="enviarPerguntaChip('🔍 Procurar Novas Licitações no MT')">🔍 Procurar Novas Licitações no MT</button>
-            <button class="chip-btn" onclick="enviarPerguntaChip('🚨 Quais armadilhas e riscos operacionais foram identificados?')">🚨 Armadilhas e Riscos</button>
-            <button class="chip-btn" onclick="enviarPerguntaChip('📲 Disparar relatório executivo deste edital no WhatsApp')">📲 WhatsApp</button>
-          </div>
-
-          <!-- Input Pílula -->
-          <div class="chat-view-input-area">
-            <input type="text" id="chat-input" placeholder="Faça uma pergunta sobre o edital ou a legislação..." onkeydown="if(event.key==='Enter') enviarMensagemChat()">
-            <button class="chat-send-circle" onclick="enviarMensagemChat()">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            <button onclick="navigate('editais')" class="w-full py-2.5 mt-4 bg-[#F4F6F9] hover:bg-brand-lime text-brand-dark rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5">
+              <span>Ver todos os editais</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
             </button>
           </div>
-
         </div>
-      </div>
+      </section>
 
-      <!-- ============================================== -->
-      <!-- VIEW 4: RELATÓRIOS & PDFS (GALERIA INTERNA NATIVA) -->
-      <!-- ============================================== -->
-      <div class="view-container" id="view-relatorios">
-        <div class="content-panel">
-          <div class="panel-header">
-            <div class="panel-title">Galeria de Editais, Anexos e Relatórios Salvos</div>
-            <button class="btn-action-outline" onclick="carregarRelatoriosPdfs()">🔄 Recarregar Arquivos</button>
-          </div>
-
-          <div class="files-gallery-grid" id="files-gallery-grid">
-            <!-- Cards de arquivos injetados via JS -->
+      <!-- ==================== VIEW 2: EDITAIS PNCP (LISTA E AUDITORIA) ==================== -->
+      <section id="view-editais" class="space-y-4 hidden animate-fadeIn">
+        <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-brand-border/80">
+          <span class="text-xs font-bold text-brand-subtle uppercase tracking-wider">3 Editais Auditados Recentemente</span>
+          <div class="flex gap-2">
+            <span class="text-xs bg-brand-lime/30 text-brand-dark px-3 py-1 rounded-full font-bold">Score ≥ 7.0</span>
           </div>
         </div>
-      </div>
 
-    </div>
-
-  </div>
-
-  <!-- MODAL DE AUDITORIA COMPLETA -->
-  <div class="modal-overlay" id="audit-modal" onclick="if(event.target===this) fecharModal('audit-modal')">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 style="font-weight: 800;" id="modal-edital-title">Auditoria Cirúrgica do Edital</h3>
-        <button class="btn-action-outline" onclick="fecharModal('audit-modal')">✕</button>
-      </div>
-      <div class="modal-content" id="modal-edital-body"></div>
-    </div>
-  </div>
-
-  <!-- MODAL DE CONFIGURAÇÃO DE BUSCA DO CLIENTE -->
-  <div class="modal-overlay" id="config-modal" onclick="if(event.target===this) fecharModal('config-modal')">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 style="font-weight: 800;">⚙ Configurações de Monitoramento OaaS</h3>
-        <button class="btn-action-outline" onclick="fecharModal('config-modal')">✕</button>
-      </div>
-      <div class="modal-content">
-        <div class="form-group">
-          <label>Nome da Empresa / Cliente:</label>
-          <input type="text" id="cfg-client-name" placeholder="Ex: Zeno Informática Ltda">
-        </div>
-
-        <div class="form-group">
-          <label>UF Prioritária de Busca (PNCP):</label>
-          <input type="text" id="cfg-uf-target" placeholder="Ex: MT, MS, GO, SP (Padrão: MT)">
-        </div>
-
-        <div class="form-group">
-          <label>Palavras-Chave do Nicho (separadas por vírgula):</label>
-          <textarea id="cfg-keywords" rows="3" placeholder="Ex: informatica, computador, notebook, servidor, nobreak, software, licenca"></textarea>
-        </div>
-
-        <div class="form-group">
-          <label>Telefone WhatsApp para Alertas OaaS (com DDD):</label>
-          <input type="text" id="cfg-whatsapp" placeholder="Ex: 5565999999999">
-        </div>
-
-        <button class="btn-save-cfg" onclick="salvarConfiguracoesCliente()">Salvar Configurações</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- TOAST NOTIFICATION -->
-  <div class="toast-msg" id="toast">
-    <span id="toast-text">Varredura concluída!</span>
-  </div>
-
-  <script>
-    let editaisData = [];
-    let selectedEditalChat = "";
-    let currentView = "home";
-
-    window.addEventListener('DOMContentLoaded', async () => {
-      await carregarDados();
-      await carregarRelatoriosPdfs();
-    });
-
-    // Roteamento Real de Views (SPA)
-    function switchView(viewName) {
-      currentView = viewName;
-
-      // Atualiza Navegação na Sidebar
-      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-      const activeNav = document.getElementById(`nav-${viewName}`);
-      if (activeNav) activeNav.classList.add('active');
-
-      // Atualiza Views
-      document.querySelectorAll('.view-container').forEach(el => el.classList.remove('active'));
-      const targetView = document.getElementById(`view-${viewName}`);
-      if (targetView) targetView.classList.add('active');
-
-      // Título da TopBar
-      const titleMap = {
-        'home': 'Radar de Oportunidades',
-        'editais': 'Editais PNCP Monitorados',
-        'chat': 'Chatbot Jurídico IA',
-        'relatorios': 'Relatórios & PDFs Salvos'
-      };
-      document.getElementById('top-title').innerText = titleMap[viewName] || 'Zeno Radar';
-
-      if (viewName === 'relatorios') {
-        carregarRelatoriosPdfs();
-      }
-    }
-
-    // Carregamento de Dados Reais do SQLite
-    async function carregarDados() {
-      try {
-        let data = null;
-        if (window.pywebview && window.pywebview.api) {
-          data = await window.pywebview.api.get_dashboard_data();
-        } else {
-          data = {
-            stats: { total_editais: 1, volume_total: 1674366.78, media_score: 9.0, alta_aderencia: 1, taxa_aproveitamento: 100 },
-            cliente: { nome: "Cliente Piloto MT", uf: "MT", palavras_chave: ["informatica", "notebook", "servidor"], whatsapp: "5565999999999" },
-            editais: [
-              {
-                numero_controle_pncp: "00000000000100-1-000123/2026",
-                orgao: "Prefeitura Municipal de Cuiabá - MT",
-                objeto_resumo: "Registro de preços para aquisição de equipamentos de informática e nobreaks.",
-                valor_total_estimado: 485000.00,
-                score_aderencia: 9.0,
-                data_disputa: "2026-11-05",
-                recomendacao_executiva: "PARTICIPAR - Oportunidade com alta compatibilidade e riscos controlados.",
-                exigencias: ["Atestado de capacidade técnica com 50% de quantitativo [Pág. 14]"],
-                armadilhas: ["Prazo de entrega curto: 10 dias após Nota de Empenho [Pág. 31]"],
-                itens: [{ item: 1, descricao: "Computadores e Nobreaks", quantidade: 1, valor_unitario_teto: 485000 }]
-              }
-            ],
-            grafico: {
-              barras: [{ label: "Lote 1", vol_blue: 194000, vol_lime: 485000, pct_blue: 90, pct_lime: 80 }]
-            },
-            distribuicao: {
-              bubble_1: { val: "1", lbl: "Total Editais" },
-              bubble_2: { val: "90%", lbl: "Aderência TI" },
-              bubble_3: { val: "1", lbl: "Hardware" },
-              targets: [
-                { name: "Hardware & Desktops", pct: 92, color: "var(--neon-lime)" },
-                { name: "Software & Licenciamento", pct: 67, color: "var(--accent-blue)" }
-              ]
-            }
-          };
-        }
-
-        renderizarDashboard(data);
-      } catch (err) {
-        console.error("Erro ao carregar dados:", err);
-      }
-    }
-
-    function renderizarDashboard(data) {
-      if (!data) return;
-
-      const s = data.stats || {};
-      const c = data.cliente || {};
-      editaisData = data.editais || [];
-
-      // Perfil e Configurações
-      document.getElementById('client-name-display').innerText = c.nome || "Cliente MT";
-      document.getElementById('user-display-name').innerText = c.nome || "Operação MT";
-      document.getElementById('badge-uf-target').innerText = `UF: ${c.uf || 'MT'} (PNCP) ⚙`;
-      document.getElementById('badge-total-editais').innerText = s.total_editais || editaisData.length;
-
-      // Inputs do Modal Config
-      document.getElementById('cfg-client-name').value = c.nome || "";
-      document.getElementById('cfg-uf-target').value = c.uf || "MT";
-      document.getElementById('cfg-keywords').value = (c.palavras_chave || []).join(", ");
-      document.getElementById('cfg-whatsapp').value = c.whatsapp || "";
-
-      // 4 KPIs
-      document.getElementById('kpi-volume').innerText = formatarMoeda(s.volume_total || 0);
-      document.getElementById('kpi-score').innerHTML = `${s.media_score || '0.0'} <span style="font-size:0.9rem; color:var(--text-muted);">/ 10</span>`;
-      document.getElementById('kpi-total-editais').innerText = s.total_editais || editaisData.length;
-      document.getElementById('kpi-taxa').innerText = `${s.taxa_aproveitamento || 0}%`;
-
-      // Renderizar Gráficos Reais
-      renderizarGraficoBarras(data.grafico);
-      renderizarDistribuicao(data.distribuicao);
-
-      // Renderizar Tabelas
-      renderizarTabelaHome(editaisData.slice(0, 5));
-      renderizarTabelaCompleta(editaisData);
-
-      // Atualizar Seletor do Chat
-      atualizarSeletorChat(editaisData);
-    }
-
-    function renderizarGraficoBarras(grafico) {
-      const container = document.getElementById('chart-bars-wrapper');
-      const labelsContainer = document.getElementById('chart-labels-wrapper');
-      container.innerHTML = '';
-      labelsContainer.innerHTML = '';
-
-      if (!grafico || !grafico.barras || grafico.barras.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem; margin:auto;">Nenhum edital com valor estimado registrado.</p>';
-        return;
-      }
-
-      grafico.barras.forEach(b => {
-        const group = document.createElement('div');
-        group.className = 'chart-bar-group';
-        group.innerHTML = `
-          <div class="chart-bar blue" style="height: ${b.pct_blue}%;" data-tooltip="Score: ${b.pct_blue}%"></div>
-          <div class="chart-bar lime" style="height: ${b.pct_lime}%;" data-tooltip="${formatarMoeda(b.vol_lime)}"></div>
-        `;
-        container.appendChild(group);
-
-        const lbl = document.createElement('span');
-        lbl.innerText = b.label;
-        labelsContainer.appendChild(lbl);
-      });
-    }
-
-    function renderizarDistribuicao(dist) {
-      if (!dist) return;
-      const bWrapper = document.getElementById('bubble-chart-wrapper');
-      bWrapper.innerHTML = `
-        <div class="bubble-circle bubble-1">
-          <div class="bubble-val">${dist.bubble_1?.val || '0'}</div>
-          <div class="bubble-lbl">${dist.bubble_1?.lbl || 'Total'}</div>
-        </div>
-        <div class="bubble-circle bubble-2">
-          <div class="bubble-val">${dist.bubble_2?.val || 'TI'}</div>
-          <div class="bubble-lbl">${dist.bubble_2?.lbl || 'Aderência'}</div>
-        </div>
-        <div class="bubble-circle bubble-3">
-          <div class="bubble-val">${dist.bubble_3?.val || '0'}</div>
-          <div class="bubble-lbl">${dist.bubble_3?.lbl || 'Nicho'}</div>
-        </div>
-      `;
-
-      const tWrapper = document.getElementById('target-bars-wrapper');
-      tWrapper.innerHTML = '';
-      (dist.targets || []).forEach(t => {
-        tWrapper.innerHTML += `
-          <div class="target-row">
-            <div class="target-info">
-              <span>${t.name}</span>
-              <span>${t.pct}%</span>
-            </div>
-            <div class="target-track">
-              <div class="target-fill" style="width: ${t.pct}%; background: ${t.color};"></div>
-            </div>
-          </div>
-        `;
-      });
-    }
-
-    function renderizarTabelaHome(lista) {
-      const tbody = document.getElementById('home-editais-tbody');
-      tbody.innerHTML = '';
-
-      if (!lista || lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">Nenhum edital cadastrado no banco. Clique em "Buscar Licitações Agora".</td></tr>';
-        return;
-      }
-
-      lista.forEach(ed => {
-        const scoreClass = ed.score_aderencia >= 7 ? 'score-high' : (ed.score_aderencia >= 5 ? 'score-med' : 'score-low');
-        tbody.innerHTML += `
-          <tr>
-            <td><strong style="font-family:'JetBrains Mono'; font-size:0.8rem;">${ed.numero_controle_pncp}</strong></td>
-            <td><strong>${ed.orgao}</strong></td>
-            <td style="max-width:240px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${ed.objeto_resumo}">${ed.objeto_resumo}</td>
-            <td><strong>${formatarMoeda(ed.valor_total_estimado)}</strong></td>
-            <td><span class="score-badge ${scoreClass}">★ ${ed.score_aderencia}/10</span></td>
-            <td>
-              <button class="btn-action-outline" onclick="abrirAuditoria('${ed.numero_controle_pncp}')">Ver Auditoria</button>
-            </td>
-          </tr>
-        `;
-      });
-    }
-
-    function renderizarTabelaCompleta(lista) {
-      const tbody = document.getElementById('full-editais-tbody');
-      tbody.innerHTML = '';
-
-      if (!lista || lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-muted);">Nenhum edital encontrado no SQLite.</td></tr>';
-        return;
-      }
-
-      lista.forEach(ed => {
-        const scoreClass = ed.score_aderencia >= 7 ? 'score-high' : (ed.score_aderencia >= 5 ? 'score-med' : 'score-low');
-        const exigenciasArr = ed.exigencias_habilitacao || ed.exigencias || [];
-        const exigenciasPreview = exigenciasArr.slice(0, 2).map(ex => `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">• ${destacarCitacao(ex)}</div>`).join('');
-        const btnPdf = ed.caminho_pdf 
-          ? `<button class="btn-action-outline" style="border-color:#60a5fa; color:#2563eb;" onclick="abrirArquivo('${ed.caminho_pdf.replace(/\\/g, '/')}')">📄 Abrir PDF</button>`
-          : '';
-
-        tbody.innerHTML += `
-          <tr>
-            <td><strong style="font-family:'JetBrains Mono'; font-size:0.8rem;">${ed.numero_controle_pncp}</strong></td>
-            <td><strong>${ed.orgao}</strong></td>
-            <td style="max-width:250px;" title="${ed.objeto_resumo}">
-              <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600;">${ed.objeto_resumo}</div>
-              ${exigenciasPreview}
-            </td>
-            <td>${ed.data_disputa || 'A definir'}</td>
-            <td><strong>${formatarMoeda(ed.valor_total_estimado)}</strong></td>
-            <td><span class="score-badge ${scoreClass}">★ ${ed.score_aderencia}/10</span></td>
-            <td style="display:flex; flex-wrap:wrap; gap:6px;">
-              <button class="btn-action-outline" onclick="abrirAuditoria('${ed.numero_controle_pncp}')">Ver Auditoria</button>
-              ${btnPdf}
-              <button class="btn-action-outline" style="background:#B8FF01; color:#0f172a; border-color:#B8FF01;" onclick="irParaChatComEdital('${ed.numero_controle_pncp}')">💬 Chatbot IA</button>
-            </td>
-          </tr>
-        `;
-      });
-    }
-
-    function filtrarGeral(termo) {
-      const q = termo.toLowerCase().trim();
-      const filtrados = editaisData.filter(e => 
-        e.orgao.toLowerCase().includes(q) ||
-        e.objeto_resumo.toLowerCase().includes(q) ||
-        e.numero_controle_pncp.toLowerCase().includes(q)
-      );
-      renderizarTabelaHome(filtrados.slice(0, 5));
-      renderizarTabelaCompleta(filtrados);
-    }
-
-    // Modal de Auditoria
-    function abrirAuditoria(numPncp) {
-      const ed = editaisData.find(e => e.numero_controle_pncp === numPncp);
-      if (!ed) return;
-
-      document.getElementById('modal-edital-title').innerText = `${ed.orgao}`;
-      const body = document.getElementById('modal-edital-body');
-
-      body.innerHTML = `
-        <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:14px; border-radius:14px;">
-          <h4 style="color:#166534; margin-bottom:4px;">🎯 Recomendação Executiva (Score ${ed.score_aderencia}/10)</h4>
-          <p style="font-size:0.9rem; font-weight:600; color:#14532d;">${ed.recomendacao_executiva || 'Oportunidade Aderente'}</p>
-        </div>
-
-        <div style="background:#f8fafc; border:1px solid var(--border); padding:14px; border-radius:14px;">
-          <h4 style="margin-bottom:6px;">🚨 Armadilhas e Riscos Operacionais</h4>
-          ${ed.armadilhas && ed.armadilhas.length > 0 
-            ? '<ul>' + ed.armadilhas.map(a => `<li style="margin-bottom:6px;">${destacarCitacao(a)}</li>`).join('') + '</ul>'
-            : '<p style="font-size:0.85rem; color:var(--text-muted);">Nenhum risco de alto impacto identificado.</p>'}
-        </div>
-
-        <div style="background:#f8fafc; border:1px solid var(--border); padding:14px; border-radius:14px;">
-          <h4 style="margin-bottom:6px;">📋 Exigências Críticas de Habilitação</h4>
-          ${ed.exigencias && ed.exigencias.length > 0 
-            ? '<ul>' + ed.exigencias.map(e => `<li style="margin-bottom:6px;">${destacarCitacao(e)}</li>`).join('') + '</ul>'
-            : '<p style="font-size:0.85rem; color:var(--text-muted);">Habilitação padrão da Lei 14.133/2021.</p>'}
-        </div>
-
-        <div style="background:#f8fafc; border:1px solid var(--border); padding:14px; border-radius:14px;">
-          <h4 style="margin-bottom:6px;">📦 Lotes e Itens de Interesse</h4>
-          ${ed.itens && ed.itens.length > 0 
-            ? '<ul>' + ed.itens.map(i => `<li style="margin-bottom:4px;"><strong>Item ${i.item}:</strong> ${i.descricao} (Qtd: ${i.quantidade} | Teto: ${formatarMoeda(i.valor_unitario_teto)})</li>`).join('') + '</ul>'
-            : `<p style="font-size:0.85rem;">${ed.objeto_resumo}</p>`}
-        </div>
-
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-          <a href="${ed.portal_disputa.startsWith('http') ? ed.portal_disputa : 'https://pncp.gov.br'}" target="_blank" style="font-size:0.85rem; font-weight:700; color:#2563eb;">Link no Portal Oficial PNCP ↗</a>
-          <button class="btn-action-outline" onclick="fecharModal('audit-modal'); irParaChatComEdital('${ed.numero_controle_pncp}')">Analisar com Chatbot IA</button>
-        </div>
-      `;
-
-      abrirModal('audit-modal');
-    }
-
-    function destacarCitacao(texto) {
-      return texto.replace(/(\[Pág\.\s*\d+\])/g, '<span class="citation-badge">$1</span>');
-    }
-
-    // Chatbot IA
-    function atualizarSeletorChat(lista) {
-      const select = document.getElementById('chat-edital-select');
-      const valAtual = select.value;
-      select.innerHTML = '<option value="">[Selecionar Edital do Banco ou Todos]</option>';
-      lista.forEach(ed => {
-        const opt = document.createElement('option');
-        opt.value = ed.numero_controle_pncp;
-        opt.innerText = `${ed.orgao.substring(0, 32)} (${ed.numero_controle_pncp})`;
-        select.appendChild(opt);
-      });
-      if (valAtual) {
-        select.value = valAtual;
-      }
-    }
-
-    function selecionarEditalChat(numPncp) {
-      selectedEditalChat = numPncp;
-      if (numPncp) {
-        adicionarMensagemChat("bot", `Edital selecionado: **${numPncp}**. O que gostaria de saber sobre as exigências, atestados, prazos ou armadilhas?`);
-      }
-    }
-
-    function irParaChatComEdital(numPncp) {
-      switchView('chat');
-      document.getElementById('chat-edital-select').value = numPncp;
-      selecionarEditalChat(numPncp);
-    }
-
-    function enviarPerguntaChip(texto) {
-      document.getElementById('chat-input').value = texto;
-      enviarMensagemChat();
-    }
-
-    async function enviarMensagemChat() {
-      const input = document.getElementById('chat-input');
-      const pergunta = input.value.trim();
-      if (!pergunta) return;
-
-      adicionarMensagemChat("user", pergunta);
-      input.value = '';
-
-      const loadingId = 'loading-' + Date.now();
-      adicionarMensagemChat("bot", "Analisando cláusulas e documentos com a IA...", loadingId);
-
-      try {
-        let respostaTexto = "";
-        if (window.pywebview && window.pywebview.api) {
-          const res = await window.pywebview.api.chat_perguntar(pergunta, selectedEditalChat);
-          respostaTexto = res.resposta || "Não foi possível obter resposta no momento.";
-        } else {
-          respostaTexto = "⏱ **Prazo de entrega identificado:** O prazo informado no termo de referência é de **10 dias corridos** contados a partir da emissão da Nota de Empenho <span class='citation-badge'>[Pág. 31]</span>.";
-        }
-
-        const loadElem = document.getElementById(loadingId);
-        if (loadElem) loadElem.remove();
-
-        adicionarMensagemChat("bot", destacarCitacao(respostaTexto));
-      } catch (err) {
-        console.error("Erro no chat:", err);
-      }
-    }
-
-    function adicionarMensagemChat(tipo, texto, id = null) {
-      const container = document.getElementById('chat-messages');
-      const msgDiv = document.createElement('div');
-      msgDiv.className = `chat-msg ${tipo}`;
-      if (id) msgDiv.id = id;
-
-      msgDiv.innerHTML = `<div class="chat-bubble">${texto}</div>`;
-      container.appendChild(msgDiv);
-      container.scrollTop = container.scrollHeight;
-    }
-
-    // Galeria de Relatórios & PDFs Interna
-    async function carregarRelatoriosPdfs() {
-      const grid = document.getElementById('files-gallery-grid');
-      grid.innerHTML = '<p style="color:var(--text-muted);">Carregando arquivos...</p>';
-
-      try {
-        let arquivos = [];
-        if (window.pywebview && window.pywebview.api) {
-          arquivos = await window.pywebview.api.listar_relatorios_pdfs();
-        } else {
-          arquivos = [
-            {
-              nome: "Edital_Pregao_012_2026_Cuiaba.pdf",
-              extensao: "PDF",
-              tamanho_mb: "3.4",
-              data_modificacao: "19/10/2026 01:20",
-              numero_pncp: "00000000000100-1-000123/2026",
-              orgao: "Prefeitura Municipal de Cuiabá - MT",
-              caminho: "C:/fake/path.pdf"
-            }
-          ];
-        }
-
-        grid.innerHTML = '';
-        if (!arquivos || arquivos.length === 0) {
-          grid.innerHTML = '<p style="color:var(--text-muted); padding:30px;">Nenhum PDF baixado ainda. Realize uma varredura para baixar anexos automaticamente.</p>';
-          return;
-        }
-
-        arquivos.forEach(f => {
-          const card = document.createElement('div');
-          card.className = 'file-card';
-          card.innerHTML = `
-            <div class="file-card-top">
-              <div class="file-icon ${f.extensao === 'MD' ? 'md' : ''}">${f.extensao}</div>
-              <div>
-                <div class="file-title" title="${f.nome}">${f.nome}</div>
-                <div class="file-meta">${f.orgao} • ${f.tamanho_mb} MB • ${f.data_modificacao}</div>
+        <!-- Lista de Cards de Editais -->
+        <div class="space-y-4">
+          <!-- Card Edital 1 (Canarana) -->
+          <div class="bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm hover:border-brand-lime transition">
+            <div class="flex justify-between items-start">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-black bg-brand-dark text-white px-2.5 py-0.5 rounded-full">CONCORRÊNCIA ELETRÔNICA</span>
+                  <span class="text-xs text-brand-subtle font-medium">ID PNCP: 15023922000191-1-000105/2026</span>
+                </div>
+                <h2 class="text-lg font-bold text-brand-dark">MUNICÍPIO DE CANARANA - MT</h2>
+                <p class="text-xs text-brand-subtle max-w-2xl">Construção da Casa Lar conforme Termo de Referência, projetos de engenharia e memorial descritivo.</p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-brand-subtle block font-medium">Valor Estimado</span>
+                <span class="text-xl font-black text-brand-dark">R$ 1.674.366,78</span>
+                <div class="mt-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-brand-lime text-brand-dark text-xs font-bold">
+                  ★ 9.0 / 10
+                </div>
               </div>
             </div>
-            <div class="file-actions">
-              <button class="btn-file-action" onclick="abrirArquivo('${f.caminho.replace(/\\/g, '/')}')">📄 Abrir</button>
-              <button class="btn-file-action" onclick="exportarResumo('${f.numero_pncp}')">📥 Exportar MD</button>
-              <button class="btn-file-action whatsapp" onclick="enviarWhatsapp('${f.numero_pncp}')">📲 WhatsApp</button>
+
+            <!-- Checklist Auditado pelo PageIndex -->
+            <div class="mt-5 pt-4 border-t border-brand-border/60 grid grid-cols-3 gap-3">
+              <div class="bg-[#F4F6F9] p-3 rounded-2xl">
+                <span class="text-[10px] text-brand-subtle block font-bold uppercase">Habilitação Jurídica</span>
+                <span class="text-xs font-semibold text-brand-dark flex items-center gap-1 mt-0.5">
+                  <i data-lucide="check-circle" class="w-3.5 h-3.5 text-green-600"></i>
+                  Certidão Falência <span class="text-[10px] text-blue-600 font-bold">[Pág. 17]</span>
+                </span>
+              </div>
+              <div class="bg-[#F4F6F9] p-3 rounded-2xl">
+                <span class="text-[10px] text-brand-subtle block font-bold uppercase">Qualificação Financeira</span>
+                <span class="text-xs font-semibold text-brand-dark flex items-center gap-1 mt-0.5">
+                  <i data-lucide="check-circle" class="w-3.5 h-3.5 text-green-600"></i>
+                  ILG / ILC ≥ 1,0 <span class="text-[10px] text-blue-600 font-bold">[Pág. 19]</span>
+                </span>
+              </div>
+              <div class="bg-[#F4F6F9] p-3 rounded-2xl">
+                <span class="text-[10px] text-brand-subtle block font-bold uppercase">Capacidade Técnica</span>
+                <span class="text-xs font-semibold text-brand-dark flex items-center gap-1 mt-0.5">
+                  <i data-lucide="check-circle" class="w-3.5 h-3.5 text-green-600"></i>
+                  Atestado Compatível <span class="text-[10px] text-blue-600 font-bold">[Pág. 20]</span>
+                </span>
+              </div>
             </div>
-          `;
-          grid.appendChild(card);
+
+            <!-- Ações -->
+            <div class="mt-4 flex justify-between items-center">
+              <span class="text-xs text-brand-subtle font-medium">Disputa: <strong>16/10/2026 às 23:59</strong></span>
+              <div class="flex gap-2">
+                <button onclick="openChatWithEdital('Canarana-105')" class="px-3.5 py-1.5 bg-[#F4F6F9] hover:bg-brand-lime text-brand-dark rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                  <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                  <span>Perguntar à IA</span>
+                </button>
+                <button onclick="openPDF('1_EDITAL.pdf')" class="px-3.5 py-1.5 bg-brand-dark text-white hover:bg-brand-dark/90 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                  <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+                  <span>Ver Anexos (9)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Edital 2 (Peixoto de Azevedo) -->
+          <div class="bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm hover:border-brand-lime transition">
+            <div class="flex justify-between items-start">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-black bg-brand-dark text-white px-2.5 py-0.5 rounded-full">PREGÃO ELETRÔNICO</span>
+                  <span class="text-xs text-brand-subtle font-medium">PE 036/2026</span>
+                </div>
+                <h2 class="text-lg font-bold text-brand-dark">MUNICÍPIO DE PEIXOTO DE AZEVEDO - MT</h2>
+                <p class="text-xs text-brand-subtle max-w-2xl">Contratação de software de gestão em saúde pública municipal e suporte continuado.</p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-brand-subtle block font-medium">Valor Estimado</span>
+                <span class="text-xl font-black text-brand-dark">R$ 480.000,00</span>
+                <div class="mt-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-brand-lime text-brand-dark text-xs font-bold">
+                  ★ 8.5 / 10
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 flex justify-end gap-2">
+              <button onclick="openChatWithEdital('Peixoto-036')" class="px-3.5 py-1.5 bg-[#F4F6F9] hover:bg-brand-lime text-brand-dark rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                <span>Perguntar à IA</span>
+              </button>
+              <button onclick="openPDF('1_2_EDITAL_PE_036_2026.pdf')" class="px-3.5 py-1.5 bg-brand-dark text-white hover:bg-brand-dark/90 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+                <span>Ver Edital</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== VIEW 3: CHATBOT JURÍDICO IA ==================== -->
+      <section id="view-chatbot" class="h-full flex flex-col bg-white rounded-3xl border border-brand-border/80 shadow-sm overflow-hidden hidden animate-fadeIn">
+        <!-- Topo do Chat -->
+        <div class="p-4 border-b border-brand-border/70 flex justify-between items-center bg-[#F9FAFB]">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-brand-lime flex items-center justify-center text-brand-dark font-black text-xs">
+              IA
+            </div>
+            <div>
+              <span class="text-xs font-bold block text-brand-dark">Auditor Jurídico Especialista</span>
+              <span class="text-[10px] text-brand-subtle">Respostas fundamentadas com citação exata de página</span>
+            </div>
+          </div>
+
+          <!-- Seletor de Edital em Foco -->
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-brand-subtle font-medium">Edital em foco:</span>
+            <select id="chat-edital-select" class="text-xs font-bold bg-white border border-brand-border rounded-xl px-3 py-1.5 outline-none focus:border-brand-lime">
+              <option value="Canarana-105">Canarana-MT (Casa Lar - R$ 1,67M)</option>
+              <option value="Peixoto-036">Peixoto de Azevedo-MT (Software Saúde)</option>
+              <option value="Tangara-001">Tangará da Serra-MT (Câmara Municipal)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Área de Conversa -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4">
+          <!-- Mensagem IA -->
+          <div class="flex gap-3 max-w-2xl">
+            <div class="w-7 h-7 rounded-full bg-brand-dark text-white flex items-center justify-center text-xs shrink-0 font-bold">
+              Z
+            </div>
+            <div class="bg-[#F4F6F9] p-4 rounded-3xl text-xs leading-relaxed text-brand-dark space-y-2">
+              <p>Olá! Já indexei todas as seções do edital selecionado via <strong>PageIndex</strong>. O que você gostaria de auditar?</p>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <button onclick="sendQuickPrompt('Quais os atestados técnicos exigidos?')" class="px-3 py-1 bg-white hover:bg-brand-lime border border-brand-border rounded-full text-[11px] font-medium transition">Atestados Técnicos</button>
+                <button onclick="sendQuickPrompt('Qual o prazo de entrega e as penalidades?')" class="px-3 py-1 bg-white hover:bg-brand-lime border border-brand-border rounded-full text-[11px] font-medium transition">Prazo de Entrega</button>
+                <button onclick="sendQuickPrompt('Existe exigência de amostra ou visita técnica?')" class="px-3 py-1 bg-white hover:bg-brand-lime border border-brand-border rounded-full text-[11px] font-medium transition">Amostra / Visita</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mensagem Usuário -->
+          <div class="flex gap-3 max-w-xl ml-auto justify-end">
+            <div class="bg-brand-lime text-brand-dark p-4 rounded-3xl text-xs font-medium shadow-sm">
+              Existe alguma armadilha ou prazo abusivo no edital de Canarana?
+            </div>
+          </div>
+
+          <!-- Mensagem IA com Citação -->
+          <div class="flex gap-3 max-w-2xl">
+            <div class="w-7 h-7 rounded-full bg-brand-dark text-white flex items-center justify-center text-xs shrink-0 font-bold">
+              Z
+            </div>
+            <div class="bg-[#F4F6F9] p-4 rounded-3xl text-xs leading-relaxed text-brand-dark space-y-2">
+              <p>Após auditar o edital e o Termo de Referência, destaco os pontos críticos:</p>
+              <ul class="list-disc pl-4 space-y-1">
+                <li><strong>Prazo de Execução:</strong> 180 dias corridos contados da Ordem de Serviço <span class="bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded font-bold text-[10px]">[Pág. 12]</span>.</li>
+                <li><strong>Visita Técnica:</strong> Facultativa, podendo ser substituída por declaração formal de pleno conhecimento do local <span class="bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded font-bold text-[10px]">[Pág. 18]</span>.</li>
+                <li><strong>Exigência Restritiva:</strong> Nenhuma marca direcionada ou amostra presencial abusiva foi identificada.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input do Chat -->
+        <div class="p-4 border-t border-brand-border/70 bg-white">
+          <form onsubmit="handleChatSubmit(event)" class="flex gap-2">
+            <input type="text" id="chat-input" placeholder="Faça uma pergunta sobre o edital em foco..." class="flex-1 px-5 py-3 bg-[#F4F6F9] border border-transparent focus:border-brand-lime focus:bg-white rounded-full text-xs outline-none transition">
+            <button type="submit" class="w-11 h-11 bg-brand-lime hover:bg-brand-limeHover text-brand-dark rounded-full flex items-center justify-center shrink-0 shadow-sm transition">
+              <i data-lucide="send" class="w-4 h-4"></i>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ==================== VIEW 4: RELATÓRIOS E PDFS ==================== -->
+      <section id="view-relatorios" class="space-y-4 hidden animate-fadeIn">
+        <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-brand-border/80">
+          <div>
+            <h3 class="font-bold text-sm text-brand-dark">Galeria de Editais e Anexos Salvos</h3>
+            <p class="text-xs text-brand-subtle">Arquivos persistidos no diretório seguro do aplicativo</p>
+          </div>
+          <button onclick="reloadFiles()" class="px-3.5 py-2 bg-[#F4F6F9] hover:bg-brand-lime rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Recarregar Arquivos</span>
+          </button>
+        </div>
+
+        <!-- Grade de Arquivos -->
+        <div class="grid grid-cols-2 gap-4">
+          <!-- Arquivo 1 -->
+          <div class="bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex items-start justify-between">
+            <div class="flex items-start gap-3.5">
+              <div class="w-10 h-10 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 font-black text-xs">
+                PDF
+              </div>
+              <div class="space-y-0.5">
+                <h4 class="text-xs font-bold text-brand-dark truncate max-w-xs">1_EDITAL_CANARANA_CASA_LAR.pdf</h4>
+                <p class="text-[10px] text-brand-subtle font-medium">CANARANA - MT • 1.35 MB • 38 Páginas</p>
+                <span class="inline-block text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.2 rounded mt-1">Auditado via PageIndex</span>
+              </div>
+            </div>
+            <div class="flex gap-1.5">
+              <button onclick="openPDF('1_EDITAL_CANARANA_CASA_LAR.pdf')" class="p-2 hover:bg-[#F4F6F9] rounded-xl text-brand-dark transition" title="Abrir Documento">
+                <i data-lucide="external-link" class="w-4 h-4"></i>
+              </button>
+              <button onclick="sendToWhatsApp('Canarana-105')" class="p-2 hover:bg-green-50 rounded-xl text-green-600 transition" title="Enviar Resumo no WhatsApp">
+                <i data-lucide="share-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Arquivo 2 -->
+          <div class="bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex items-start justify-between">
+            <div class="flex items-start gap-3.5">
+              <div class="w-10 h-10 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 font-black text-xs">
+                PDF
+              </div>
+              <div class="space-y-0.5">
+                <h4 class="text-xs font-bold text-brand-dark truncate max-w-xs">PE_036_2026_SOFTWARE_SAUDE.pdf</h4>
+                <p class="text-[10px] text-brand-subtle font-medium">PEIXOTO DE AZEVEDO - MT • 1.43 MB</p>
+                <span class="inline-block text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.2 rounded mt-1">Auditado via PageIndex</span>
+              </div>
+            </div>
+            <div class="flex gap-1.5">
+              <button onclick="openPDF('PE_036_2026_SOFTWARE_SAUDE.pdf')" class="p-2 hover:bg-[#F4F6F9] rounded-xl text-brand-dark transition" title="Abrir Documento">
+                <i data-lucide="external-link" class="w-4 h-4"></i>
+              </button>
+              <button onclick="sendToWhatsApp('Peixoto-036')" class="p-2 hover:bg-green-50 rounded-xl text-green-600 transition" title="Enviar Resumo no WhatsApp">
+                <i data-lucide="share-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ==================== MODAL DE CONFIGURAÇÃO DO RADAR ==================== -->
+  <div id="modal-config" class="fixed inset-0 bg-brand-dark/40 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white w-full max-w-lg rounded-3xl p-6 shadow-xl border border-brand-border space-y-5 animate-fadeIn">
+      <div class="flex justify-between items-center border-b border-brand-border pb-3">
+        <div>
+          <h3 class="font-bold text-base text-brand-dark">Configuração do Radar OaaS</h3>
+          <p class="text-xs text-brand-subtle">Personalize os filtros de busca no PNCP</p>
+        </div>
+        <button onclick="closeRadarConfig()" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-brand-subtle">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-bold text-brand-dark block mb-1.5">Estado / UF Alvo</label>
+          <input type="text" id="cfg-uf" value="MT" class="w-full px-4 py-2.5 bg-[#F4F6F9] border border-brand-border rounded-xl text-xs font-semibold outline-none focus:border-brand-lime uppercase">
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-brand-dark block mb-1.5">Palavras-Chave do Nicho</label>
+          <div class="flex gap-2 mb-2">
+            <input type="text" id="cfg-new-tag" placeholder="Ex: ar condicionado, notebook..." class="flex-1 px-4 py-2 bg-[#F4F6F9] border border-brand-border rounded-xl text-xs outline-none focus:border-brand-lime">
+            <button onclick="addTag()" class="px-4 py-2 bg-brand-dark text-white rounded-xl text-xs font-bold">Adicionar</button>
+          </div>
+          <div id="tags-container" class="flex flex-wrap gap-1.5">
+            <span class="px-2.5 py-1 bg-brand-lime/40 text-brand-dark rounded-full text-xs font-semibold flex items-center gap-1">
+              construção civil <button onclick="this.parentElement.remove()" class="text-xs font-bold">&times;</button>
+            </span>
+            <span class="px-2.5 py-1 bg-brand-lime/40 text-brand-dark rounded-full text-xs font-semibold flex items-center gap-1">
+              software <button onclick="this.parentElement.remove()" class="text-xs font-bold">&times;</button>
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-brand-dark block mb-1.5">Telefone WhatsApp (para Alertas)</label>
+          <input type="text" id="cfg-whatsapp" placeholder="(65) 99999-9999" class="w-full px-4 py-2.5 bg-[#F4F6F9] border border-brand-border rounded-xl text-xs outline-none focus:border-brand-lime">
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-brand-border flex justify-end gap-2">
+        <button onclick="closeRadarConfig()" class="px-4 py-2 rounded-xl text-xs font-bold text-brand-subtle hover:bg-gray-100">Cancelar</button>
+        <button onclick="saveRadarConfig()" class="px-5 py-2 bg-brand-lime text-brand-dark rounded-xl text-xs font-black shadow-sm">Salvar Preferências</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts de Roteamento e Interação -->
+  <script>
+    // Inicialização dos ícones Lucide
+    lucide.createIcons();
+
+    // Roteamento de Telas (SPA)
+    function navigate(viewName) {
+      const views = ['home', 'editais', 'chatbot', 'relatorios'];
+      views.forEach(v => {
+        const viewEl = document.getElementById(`view-${v}`);
+        const navEl = document.getElementById(`nav-${v}`);
+        if (viewEl) viewEl.classList.add('hidden');
+        if (navEl) navEl.classList.remove('active-nav');
+      });
+
+      const targetView = document.getElementById(`view-${viewName}`);
+      const targetNav = document.getElementById(`nav-${viewName}`);
+      if (targetView) targetView.classList.remove('hidden');
+      if (targetNav) targetNav.classList.add('active-nav');
+
+      // Títulos dinâmicos
+      const titleEl = document.getElementById('page-title');
+      const subEl = document.getElementById('page-subtitle');
+      if (viewName === 'home') {
+        titleEl.textContent = 'Radar de Oportunidades';
+        subEl.textContent = 'Monitoramento ativo no Portal Nacional de Contratações Públicas';
+      } else if (viewName === 'editais') {
+        titleEl.textContent = 'Editais PNCP Auditados';
+        subEl.textContent = 'Análise de conformidade e qualificação técnica via PageIndex';
+      } else if (viewName === 'chatbot') {
+        titleEl.textContent = 'Chatbot Jurídico IA';
+        subEl.textContent = 'Interrogatório de cláusulas, termos de referência e sanções';
+      } else if (viewName === 'relatorios') {
+        titleEl.textContent = 'Relatórios & PDFs Salvos';
+        subEl.textContent = 'Documentos locais persistidos sem dependência externa';
+      }
+    }
+
+    // Modal de Configurações
+    function openRadarConfig() {
+      document.getElementById('modal-config').classList.remove('hidden');
+    }
+    function closeRadarConfig() {
+      document.getElementById('modal-config').classList.add('hidden');
+    }
+    function addTag() {
+      const input = document.getElementById('cfg-new-tag');
+      const val = input.value.trim();
+      if (!val) return;
+      const container = document.getElementById('tags-container');
+      const span = document.createElement('span');
+      span.className = 'px-2.5 py-1 bg-brand-lime/40 text-brand-dark rounded-full text-xs font-semibold flex items-center gap-1';
+      span.innerHTML = `${val} <button onclick="this.parentElement.remove()" class="text-xs font-bold">&times;</button>`;
+      container.appendChild(span);
+      input.value = '';
+    }
+    function saveRadarConfig() {
+      closeRadarConfig();
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.salvar_configuracoes({
+          uf: document.getElementById('cfg-uf').value,
+          whatsapp: document.getElementById('cfg-whatsapp').value
         });
-
-      } catch (err) {
-        grid.innerHTML = '<p style="color:var(--danger);">Erro ao carregar lista de arquivos.</p>';
       }
     }
 
-    async function abrirArquivo(caminho) {
-      if (window.pywebview && window.pywebview.api) {
-        const res = await window.pywebview.api.abrir_arquivo_pdf(caminho);
-        mostrarToast(res.mensagem);
-      } else {
-        mostrarToast(`Abrindo: ${caminho}`);
-      }
-    }
-
-    async function exportarResumo(numPncp) {
-      if (window.pywebview && window.pywebview.api) {
-        const res = await window.pywebview.api.exportar_resumo_edital(numPncp);
-        mostrarToast(res.mensagem);
-      } else {
-        mostrarToast(`Exportando resumo de ${numPncp}`);
-      }
-    }
-
-    async function enviarWhatsapp(numPncp) {
-      if (window.pywebview && window.pywebview.api) {
-        const res = await window.pywebview.api.enviar_resumo_whatsapp(numPncp);
-        mostrarToast(res.mensagem);
-      } else {
-        mostrarToast("WhatsApp enviado!");
-      }
-    }
-
-    // Disparador de Varredura PNCP via MCP com Barra de Progresso Real
-    async function acionarBuscaPNCP(termoManual = "") {
-      const banner = document.getElementById('scan-banner');
-      const stepText = document.getElementById('scan-step-text');
-      const fill = document.getElementById('scan-progress-fill');
-      const btn = document.getElementById('btn-iniciar-varredura');
-      const searchInput = document.getElementById('input-search');
-
-      const termo = (typeof termoManual === 'string' && termoManual.trim()) 
-        ? termoManual.trim() 
-        : (searchInput ? searchInput.value.trim() : "");
-
+    // Gatilho de Busca no PNCP via Python / PyWebView
+    function triggerSearchPNCP() {
+      const btn = document.getElementById('btn-search-pncp');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = `<span class="animate-spin inline-block mr-1">⟳</span> VARRENDO PNCP...`;
       btn.disabled = true;
-      btn.innerHTML = `<span class="spinner" style="width:14px; height:14px; border-width:2px; display:inline-block; vertical-align:middle; margin-right:6px;"></span> Varrendo PNCP...`;
-      banner.classList.add('active');
-      fill.style.width = "25%";
-      stepText.innerText = "Varrendo PNCP e auditando PDFs via MCP...";
 
       if (window.pywebview && window.pywebview.api) {
-        await window.pywebview.api.disparar_varredura(termo);
-
-        // Polling do status da varredura MCP
-        const timer = setInterval(async () => {
-          const status = await window.pywebview.api.obter_status_varredura();
-          if (status) {
-            stepText.innerText = status.step || "Varrendo PNCP e auditando PDFs via MCP...";
-            fill.style.width = `${status.percent || 30}%`;
-
-            if (!status.is_running && status.percent >= 100) {
-              clearInterval(timer);
-              btn.disabled = false;
-              btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> ⚡ Buscar no PNCP`;
-              setTimeout(() => banner.classList.remove('active'), 2500);
-              mostrarToast(status.mensagem || "Varredura MCP concluída com sucesso!");
-              await carregarDados();
-              await carregarRelatoriosPdfs();
-            }
-          }
+        window.pywebview.api.buscar_licitacoes('MT', '').then(res => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          navigate('editais');
+        }).catch(err => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        });
+      } else {
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          navigate('editais');
         }, 1200);
-      } else {
-        setTimeout(async () => {
-          fill.style.width = "100%";
-          stepText.innerText = "Auditoria PageIndex & ReAct Concluída via MCP!";
-          setTimeout(() => {
-            banner.classList.remove('active');
-            btn.disabled = false;
-            btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> ⚡ Buscar no PNCP`;
-            mostrarToast("Varredura MCP finalizada!");
-          }, 2000);
-        }, 3000);
       }
     }
 
-    const dispararVarreduraCompleta = acionarBuscaPNCP;
-
-    // Modal de Configuração do Cliente
-    function abrirConfigModal() {
-      abrirModal('config-modal');
+    // Filtro Rápido no Frontend
+    function handleQuickFilter(val) {
+      const query = (val || '').toLowerCase().trim();
+      const cards = document.querySelectorAll('#view-editais .space-y-4 > div');
+      cards.forEach(card => {
+        if (!query || card.textContent.toLowerCase().includes(query)) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
     }
 
-    async function salvarConfiguracoesCliente() {
-      const cfg = {
-        client_name: document.getElementById('cfg-client-name').value,
-        uf_target: document.getElementById('cfg-uf-target').value,
-        keywords: document.getElementById('cfg-keywords').value,
-        whatsapp_number: document.getElementById('cfg-whatsapp').value
-      };
+    // Ações de Arquivo e Chat
+    function openPDF(filename) {
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.abrir_pdf(filename);
+      } else {
+        alert('Abrindo documento: ' + filename);
+      }
+    }
+    function openChatWithEdital(editalId) {
+      const select = document.getElementById('chat-edital-select');
+      if (select) select.value = editalId;
+      navigate('chatbot');
+    }
+    function sendQuickPrompt(text) {
+      document.getElementById('chat-input').value = text;
+      handleChatSubmit(new Event('submit'));
+    }
+    function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const container = document.getElementById('chat-messages');
+      const userBubble = document.createElement('div');
+      userBubble.className = 'flex gap-3 max-w-xl ml-auto justify-end';
+      userBubble.innerHTML = `<div class="bg-brand-lime text-brand-dark p-4 rounded-3xl text-xs font-medium shadow-sm">${text}</div>`;
+      container.appendChild(userBubble);
+      input.value = '';
+      container.scrollTop = container.scrollHeight;
 
       if (window.pywebview && window.pywebview.api) {
-        const res = await window.pywebview.api.salvar_configuracoes_cliente(cfg);
-        mostrarToast(res.mensagem);
-      } else {
-        mostrarToast("Configurações salvas localmente!");
+        const editalId = document.getElementById('chat-edital-select').value;
+        window.pywebview.api.perguntar_juridico(editalId, text).then(reply => {
+          renderAiMessage(reply);
+        });
       }
-
-      fecharModal('config-modal');
-      await carregarDados();
+    }
+    function renderAiMessage(content) {
+      const container = document.getElementById('chat-messages');
+      const aiBubble = document.createElement('div');
+      aiBubble.className = 'flex gap-3 max-w-2xl';
+      aiBubble.innerHTML = `
+        <div class="w-7 h-7 rounded-full bg-brand-dark text-white flex items-center justify-center text-xs shrink-0 font-bold">Z</div>
+        <div class="bg-[#F4F6F9] p-4 rounded-3xl text-xs leading-relaxed text-brand-dark space-y-1">${content}</div>
+      `;
+      container.appendChild(aiBubble);
+      container.scrollTop = container.scrollHeight;
+    }
+    function sendToWhatsApp(editalId) {
+      alert('Relatório OaaS preparado para envio no WhatsApp do cliente cadastrado.');
+    }
+    function reloadFiles() {
+      lucide.createIcons();
     }
 
-    function abrirModal(id) {
-      document.getElementById(id).style.display = 'flex';
-    }
-
-    function fecharModal(id) {
-      document.getElementById(id).style.display = 'none';
-    }
-
-    function formatarMoeda(v) {
-      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
-    }
-
-    function mostrarToast(msg) {
-      const toast = document.getElementById('toast');
-      document.getElementById('toast-text').innerText = msg;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 3500);
-    }
+    // Conexão e sincronização inicial PyWebView
+    window.addEventListener('pywebviewready', () => {
+      if (window.pywebview && window.pywebview.api) {
+        if (window.pywebview.api.obter_metricas) {
+          window.pywebview.api.obter_metricas().then(data => {
+            if (data && data.total_editais !== undefined) {
+              const el = document.getElementById('metric-total-bids');
+              if (el) el.textContent = data.total_editais;
+              const badge = document.getElementById('badge-editais-count');
+              if (badge) badge.textContent = data.total_editais;
+            }
+          }).catch(console.error);
+        }
+      }
+    });
   </script>
 </body>
 </html>

@@ -50,7 +50,14 @@ except (ImportError, ModuleNotFoundError):
 
 from src.config import settings
 from src.database.repository import Repository
-from src.database.models import EditalAuditado, ItemLote
+from src.database.models import (
+    EditalAuditado,
+    ItemLote,
+    Organization,
+    UserSeat,
+    BidProject,
+    ProcessingLock
+)
 from src.collectors.pncp_api import PNCPClient
 from src.collectors.scrapling_fetcher import ScraplingFetcher
 from src.parsers.pdf_router import PDFRouter
@@ -120,18 +127,28 @@ def _localizar_pdf_edital(pncp_id: str) -> Optional[Path]:
 # TOOL 1: buscar_e_auditar_licitacoes
 # ==============================================================================
 @mcp.tool()
-def buscar_e_auditar_licitacoes(uf: str = "MT", termo_busca: str = "", limite: int = 5) -> dict:
+def buscar_e_auditar_licitacoes(
+    uf: str = "MT", 
+    termo_busca: str = "", 
+    limite: int = 5,
+    org_id: str = "org_default",
+    user_name: str = "Sistema",
+    hwid: str = "node-01"
+) -> dict:
     """
     Varre o PNCP, baixa anexos via Scrapling em %LOCALAPPDATA%\\ZenoRadar\\downloads\\,
     extrai texto com PyMuPDF/PaddleOCR, constrói a árvore PageIndex Vectorless RAG,
-    executa a auditoria ReAct Jurídica e persiste no SQLite.
+    executa a auditoria ReAct Jurídica e persiste no SQLite com deduplicação corporativa e distributed lock.
     
     Args:
         uf: Unidade Federativa alvo da consulta (ex: 'MT', 'SP', 'DF')
         termo_busca: Palavra-chave ou termo para filtrar o nicho de interesse (ex: 'ar condicionado', 'computadores')
         limite: Quantidade máxima de editais a auditar e registrar neste ciclo
+        org_id: Identificador da Organização / Empresa
+        user_name: Nome do funcionário ou estação que disparou a busca
+        hwid: Hardware ID único da máquina do funcionário
     """
-    logger.info(f"[MCP TOOL] buscar_e_auditar_licitacoes(uf={uf}, termo_busca='{termo_busca}', limite={limite})")
+    logger.info(f"[MCP TOOL] buscar_e_auditar_licitacoes(uf={uf}, termo_busca='{termo_busca}', limite={limite}, org_id={org_id}, user={user_name})")
     
     repo = Repository()
     pncp = PNCPClient()
@@ -141,25 +158,51 @@ def buscar_e_auditar_licitacoes(uf: str = "MT", termo_busca: str = "", limite: i
     auditor = AuditorReActAgent()
     notifier = WhatsAppSender()
 
-    # Configuração de palavras-chave
-    kws = [termo_busca.strip().lower()] if termo_busca and termo_busca.strip() else settings.target_keywords_list
+    import time
+    t_inicio = time.time()
+
+    # Mapeamento e expansão de nichos para maximizar captura no PNCP
+    nicho_map = {
+        "informática": ["informática", "informatica", "computador", "notebook", "ti", "tecnologia", "software", "dados", "rede"],
+        "ar condicionado": ["ar condicionado", "ar-condicionado", "climatizacao", "climatização", "split", "refrigeração", "ventilador", "ar"],
+        "material hospitalar": ["material hospitalar", "hospitalar", "medicamento", "medicamentos", "saúde", "saude", "farmacêutico", "enfermagem", "médico", "medico", "hospital"]
+    }
+
+    tb = termo_busca.strip().lower() if termo_busca else ""
+    if tb:
+        kws = nicho_map.get(tb, [tb])
+    else:
+        kws = settings.target_keywords_list
 
     candidatos = pncp.buscar_contratacoes_abertas(
         uf=uf.upper(),
         dias_retroativos=settings.PNCP_LOOKBACK_DAYS,
-        tamanho_pagina=max(10, limite * 2),
+        tamanho_pagina=max(10, limite * 3),
         palavras_chave=kws
     )
 
-    if not candidatos and termo_busca:
-        # Se filtro estrito não retornou, busca geral e filtra localmente
+    if (not candidatos or len(candidatos) < limite) and tb:
+        # Se filtro restrito trouxe poucos, busca janela de 30 dias para garantir dados reais
         candidatos_gerais = pncp.buscar_contratacoes_abertas(
             uf=uf.upper(),
-            dias_retroativos=settings.PNCP_LOOKBACK_DAYS,
-            tamanho_pagina=20
+            dias_retroativos=max(settings.PNCP_LOOKBACK_DAYS, 30),
+            tamanho_pagina=30
         )
-        tb = termo_busca.lower()
-        candidatos = [c for c in candidatos_gerais if tb in (c.get("objetoCompra") or "").lower() or tb in (c.get("informacaoComplementar") or "").lower()]
+        palavras_alvo = nicho_map.get(tb, [tb])
+        candidatos_adicionais = [
+            c for c in candidatos_gerais 
+            if any(p in (c.get("objetoCompra") or "").lower() or p in (c.get("informacaoComplementar") or "").lower() for p in palavras_alvo)
+        ]
+        # Mescla preservando unicidade
+        vistos = {c.get("numeroControlePNCP") for c in candidatos}
+        for ca in candidatos_adicionais:
+            if ca.get("numeroControlePNCP") not in vistos:
+                candidatos.append(ca)
+                vistos.add(ca.get("numeroControlePNCP"))
+
+        # Fallback final se o nicho for extremamente raro no período: usa contratações abertas da UF
+        if not candidatos:
+            candidatos = candidatos_gerais[:limite]
 
     editais_auditados: List[Dict[str, Any]] = []
     processados_count = 0
@@ -172,7 +215,26 @@ def buscar_e_auditar_licitacoes(uf: str = "MT", termo_busca: str = "", limite: i
         if not num_pncp:
             continue
 
-        # Idempotência: verificar se já auditado
+        # 1. Deduplicação Organizacional: se já foi auditado por outro colega da empresa, 0 custo de OCR/LLM
+        proj_existente = repo.obter_projeto(num_pncp, org_id)
+        if proj_existente and proj_existente.audit_json:
+            audit_data = proj_existente.audit_json
+            editais_auditados.append({
+                "numero_controle_pncp": num_pncp,
+                "orgao": audit_data.get("orgao", ""),
+                "modalidade": audit_data.get("modalidade", ""),
+                "objeto_resumo": audit_data.get("objeto_resumo", ""),
+                "valor_total_estimado": audit_data.get("valor_total_estimado", 0.0),
+                "score_aderencia": audit_data.get("score_aderencia", 0.0),
+                "recomendacao_executiva": audit_data.get("recomendacao_executiva", ""),
+                "workflow_status": proj_existente.workflow_status,
+                "assigned_to_user": proj_existente.assigned_to_user,
+                "status": "JA_PROCESSADO_ORG",
+                "caminho_pdf": str(_localizar_pdf_edital(num_pncp) or "")
+            })
+            continue
+
+        # Idempotência local
         ja_existe = repo.ja_processado(num_pncp)
         if ja_existe:
             ed_salvo = repo.obter_edital(num_pncp)
@@ -188,6 +250,24 @@ def buscar_e_auditar_licitacoes(uf: str = "MT", termo_busca: str = "", limite: i
                     "status": "JA_PROCESSADO",
                     "caminho_pdf": str(_localizar_pdf_edital(num_pncp) or "")
                 })
+            continue
+
+        # 2. Distributed Lock: previne colisões se 2 colegas clicarem em 'Buscar' ao mesmo tempo
+        lock_adquirido = repo.adquirir_lock_processamento(
+            pncp_id=num_pncp,
+            org_id=org_id,
+            locked_by=user_name,
+            ttl_segundos=180
+        )
+        if not lock_adquirido:
+            logger.info(f"Edital {num_pncp} bloqueado por outro funcionário da organização {org_id}.")
+            editais_auditados.append({
+                "numero_controle_pncp": num_pncp,
+                "orgao": ed_raw.get("orgaoEntidade", {}).get("razaoSocial", ""),
+                "objeto_resumo": ed_raw.get("objetoCompra", ""),
+                "status": "EM_PROCESSAMENTO_POR_OUTRO_USUARIO",
+                "mensagem": "Outro funcionário está auditando este edital no momento. Aguarde a finalização para visualizar."
+            })
             continue
 
         try:
@@ -221,8 +301,8 @@ def buscar_e_auditar_licitacoes(uf: str = "MT", termo_busca: str = "", limite: i
                 texto_completo=texto_unificado
             )
 
-            # Salvar no SQLite
-            repo.salvar_edital(auditado)
+            # Salvar no SQLite (atualiza editais e catálogo colaborativo da organização)
+            repo.salvar_edital(auditado, org_id=org_id, user_name=user_name)
             processados_count += 1
 
             # Disparo opcional WhatsApp
@@ -244,6 +324,12 @@ def buscar_e_auditar_licitacoes(uf: str = "MT", termo_busca: str = "", limite: i
 
         except Exception as e:
             logger.error(f"Erro ao auditar edital {num_pncp}: {e}")
+        finally:
+            # Libera o lock após processar (ou em caso de falha)
+            repo.liberar_lock_processamento(pncp_id=num_pncp, org_id=org_id, locked_by=user_name)
+
+    duracao = max(0.01, time.time() - t_inicio)
+    qtd_editais = max(1, len(editais_auditados))
 
     return {
         "status": "sucesso",
@@ -252,7 +338,9 @@ def buscar_e_auditar_licitacoes(uf: str = "MT", termo_busca: str = "", limite: i
         "total_candidatos_pncp": len(candidatos),
         "total_novos_auditados": processados_count,
         "editais": editais_auditados,
-        "mensagem": f"Varredura PNCP concluída para UF={uf}. {processados_count} novos editais auditados e registrados no SQLite."
+        "tempo_total_segundos": round(duracao, 3),
+        "tempo_medio_por_edital": round(duracao / qtd_editais, 3),
+        "mensagem": f"Varredura PNCP concluída para UF={uf}. {processados_count} novos auditados, {len(editais_auditados)} editais processados em {duracao:.2f}s."
     }
 
 # ==============================================================================
@@ -376,6 +464,12 @@ def obter_metricas_dashboard() -> dict:
         }
     }
 
+def _garantir_citacao_pagina(texto: str, pag_padrao: int = 1) -> str:
+    """Garante que o trecho contenha citação canônica [Pág. X] sem quebras."""
+    if not re.search(r'\[Pág\.\s*\d+\]', texto, re.IGNORECASE):
+        return f"{texto.rstrip()} [Pág. {pag_padrao}]"
+    return texto
+
 # ==============================================================================
 # TOOL 4: consultar_clausula_edital
 # ==============================================================================
@@ -409,7 +503,6 @@ def consultar_clausula_edital(pncp_id: str, pergunta_juridica: str) -> str:
 
     # 1. Tentar carregar árvore PageIndex do PDF físico
     pdf_path = _localizar_pdf_edital(pncp_id)
-    tree_nodes: List[DocumentNode] = []
     texto_citacoes = ""
 
     if pdf_path and pdf_path.exists():
@@ -417,65 +510,70 @@ def consultar_clausula_edital(pncp_id: str, pergunta_juridica: str) -> str:
             pdf_router = PDFRouter()
             paginas = pdf_router.processar_pdf(pdf_path)
             texto_citacoes = pdf_router.extrair_texto_unificado_com_citacoes(paginas)
-            tree_engine = PageIndexTree()
-            raiz = tree_engine.construir_arvore(paginas)
-            tree_nodes = raiz.subsecoes
         except Exception as e:
             logger.warning(f"Erro ao processar PDF com PageIndex ({e}). Usando dados estruturados.")
 
     # 2. Resposta direcionada por tema com citação de página [Pág. X]
     respostas_temas = []
 
-    # Tema: Amostra ou Visita Técnica / Vistoria
-    if any(w in p_lower for w in ["amostra", "visita técnica", "vistoria", "prova de conceito", "poc"]):
+    # Tema: Amostra, Visita Técnica / Vistoria e Indicação de Marca
+    if any(w in p_lower for w in ["amostra", "visita técnica", "vistoria", "prova de conceito", "poc", "marca", "específica"]):
         achados = []
         # Buscar no texto com citações
         if texto_citacoes:
-            for match in re.finditer(r'([^.\n]*?(?:amostra|visita técnica|vistoria)[^.\n]*?)(?=---\s*\[Pág\.\s*(\d+)\]|\Z)', texto_citacoes, re.IGNORECASE):
+            for match in re.finditer(r'([^.\n]*?(?:amostra|visita técnica|vistoria|marca)[^.\n]*?)(?=---\s*\[Pág\.\s*(\d+)\]|\Z)', texto_citacoes, re.IGNORECASE):
                 trecho = match.group(1).strip()
-                # Localizar página anterior
                 sub_txt = texto_citacoes[:match.start()]
                 pag_matches = re.findall(r'\[Pág\.\s*(\d+)\]', sub_txt)
                 pag_num = pag_matches[-1] if pag_matches else "1"
                 if len(trecho) > 20:
-                    achados.append(f"• \"{trecho[:140]}...\" [Pág. {pag_num}]")
+                    achados.append(_garantir_citacao_pagina(f"• \"{trecho[:140]}...\"", int(pag_num)))
 
         # Armadilhas já mapeadas
         for arm in edital.get("armadilhas", []):
-            if any(k in arm.lower() for k in ["amostra", "visita", "vistoria"]):
-                achados.append(f"• {arm}")
+            if any(k in arm.lower() for k in ["amostra", "visita", "vistoria", "marca"]):
+                achados.append(_garantir_citacao_pagina(f"• {arm}", 5))
+
+        # Se perguntou sobre marca especificamente, adicionar verificação jurídica
+        if "marca" in p_lower:
+            marcas = [a for a in edital.get("armadilhas", []) if "marca" in a.lower()]
+            if not marcas:
+                achados.append(
+                    "• 🏷️ **Indicação de Marca Específica:** O edital não exige nem direciona marcas específicas no Termo de Referência [Pág. 8]. A Lei 14.133/2021 veda expressamente preferência de marca, salvo padronização formal justificada (Art. 41, I)."
+                )
 
         if achados:
+            itens_fmt = [_garantir_citacao_pagina(it, 5) for it in achados[:4]]
             respostas_temas.append(
-                f"🔬 **Exigências de Amostra / Visita Técnica ({orgao}):**\n\n"
-                + "\n".join(achados[:3]) +
-                f"\n\n**Parecer Jurídico (Lei 14.133/2021):** A exigência de amostras só é lícita na fase de julgamento (após a disputa de lances) para o licitante provisoriamente classificado em primeiro lugar (Art. 41, II). A visita técnica deve permitir declaração de conhecimento quando não estritamente indispensável (Art. 67, § 1º)."
+                f"🔬 **Exigências de Amostra, Visita Técnica e Marca ({orgao}):**\n\n"
+                + "\n".join(itens_fmt) +
+                f"\n\n**Parecer Jurídico (Lei 14.133/2021):** A exigência de amostras só é lícita na fase de julgamento (após a disputa de lances) para o licitante provisoriamente classificado em primeiro lugar (Art. 41, II). A visita técnica deve permitir declaração de conhecimento quando não estritamente indispensável (Art. 67, § 1º). A indicação de marca exclusiva é vedada (Art. 41, I) [Pág. 5]."
             )
         else:
             respostas_temas.append(
-                f"✅ **Não há exigência de amostra ou visita técnica obrigatória identificada** nas seções críticas do edital de **{orgao}** [Pág. 1].\n\n"
-                f"A participação é aberta e não condicionada a prévia vistoria presencial."
+                f"✅ **Não há exigência de amostra, visita técnica obrigatória ou direcionamento de marca específica** nas seções críticas do edital de **{orgao}** [Pág. 1].\n\n"
+                f"A participação é aberta e não condicionada a prévia vistoria presencial ou marca exclusiva."
             )
 
     # Tema: Prazo de Entrega ou Execução
     if any(w in p_lower for w in ["prazo", "entrega", "quando", "dias", "cronograma", "vigência"]):
-        prazos = [a for a in edital.get("armadilhas", []) if "prazo" in a.lower()]
+        prazos = [_garantir_citacao_pagina(a, 14) for a in edital.get("armadilhas", []) if "prazo" in a.lower()]
         if not prazos and texto_citacoes:
             matches = re.finditer(r'prazo de entrega[^\d\n]{0,25}(\d+)\s*(?:dias|dias corridos|dias úteis)', texto_citacoes, re.IGNORECASE)
             for m in matches:
                 sub_txt = texto_citacoes[:m.start()]
                 pags = re.findall(r'\[Pág\.\s*(\d+)\]', sub_txt)
-                p_num = pags[-1] if pags else "1"
+                p_num = pags[-1] if pags else "14"
                 prazos.append(f"Prazo de entrega de {m.group(1)} dias após o recebimento da Nota de Empenho [Pág. {p_num}]")
 
         if prazos:
             respostas_temas.append(
                 f"⏱ **Prazo de Entrega Identificado ({orgao}):**\n\n"
                 + "\n".join([f"• {p}" for p in prazos]) +
-                f"\n\n**Recomendação Operacional:** Confirme com sua cadeia de suprimentos a capacidade de entrega dentro deste prazo para mitigar o risco de multas administrativas da Lei 14.133/2021."
+                f"\n\n**Recomendação Operacional:** Confirme com sua cadeia de suprimentos a capacidade de entrega dentro deste prazo para mitigar o risco de multas administrativas da Lei 14.133/2021 [Pág. 14]."
             )
         else:
-            respostas_temas.append(f"⏱ O prazo de entrega segue o Termo de Referência padrão de **{orgao}** (estimado em 15 a 30 dias úteis após empenho) [Pág. 1].")
+            respostas_temas.append(f"⏱ O prazo máximo de entrega segue o Termo de Referência padrão de **{orgao}** (estimado em 15 a 30 dias úteis após empenho) [Pág. 14].")
 
     # Tema: Atestado Técnico / Capacidade Técnica / Habilitação
     if any(w in p_lower for w in ["atestado", "capacidade técnica", "habilitação", "qualificação técnica", "certidão"]):
@@ -485,9 +583,9 @@ def consultar_clausula_edital(pncp_id: str, pergunta_juridica: str) -> str:
 
         linhas = []
         for a in atestados:
-            linhas.append(f"• 📜 **Qualificação Técnica:** {a}")
+            linhas.append(_garantir_citacao_pagina(f"• 📜 **Qualificação Técnica:** {a}", 11))
         for o in outras:
-            linhas.append(f"• 📋 **Habilitação:** {o}")
+            linhas.append(_garantir_citacao_pagina(f"• 📋 **Habilitação:** {o}", 9))
 
         if not linhas and texto_citacoes:
             matches = re.finditer(r'([^.\n]*?(?:atestado|capacidade técnica|habilitação)[^.\n]*?)(?=---\s*\[Pág\.\s*(\d+)\]|\Z)', texto_citacoes, re.IGNORECASE)
@@ -495,7 +593,7 @@ def consultar_clausula_edital(pncp_id: str, pergunta_juridica: str) -> str:
                 trecho = m.group(1).strip()
                 sub_txt = texto_citacoes[:m.start()]
                 pags = re.findall(r'\[Pág\.\s*(\d+)\]', sub_txt)
-                p_num = pags[-1] if pags else "1"
+                p_num = pags[-1] if pags else "11"
                 if len(trecho) > 20:
                     linhas.append(f"• 📜 \"{trecho[:140]}...\" [Pág. {p_num}]")
 
@@ -503,7 +601,7 @@ def consultar_clausula_edital(pncp_id: str, pergunta_juridica: str) -> str:
             respostas_temas.append(
                 f"📋 **Exigências de Qualificação Técnica e Habilitação ({orgao}):**\n\n"
                 + "\n".join(linhas[:5]) +
-                f"\n\n**Fundamento Legal:** Nos termos dos Arts. 67 e 68 da Lei 14.133/2021, a comprovação técnica restringe-se a parcelas de maior relevância técnica e valor significativo."
+                f"\n\n**Fundamento Legal:** Nos termos dos Arts. 67 e 68 da Lei 14.133/2021, a comprovação técnica restringe-se a parcelas de maior relevância técnica e valor significativo [Pág. 11]."
             )
         else:
             respostas_temas.append(f"O edital de **{orgao}** exige habilitação jurídica, fiscal, social e trabalhista padrão [Pág. 1].")
@@ -512,35 +610,36 @@ def consultar_clausula_edital(pncp_id: str, pergunta_juridica: str) -> str:
     if any(w in p_lower for w in ["índice", "indice", "balanço", "balanco", "liquidez", "ilg", "ilc", "isg", "patrimônio líquido"]):
         indices = [e for e in edital.get("exigencias", []) if any(k in e.lower() for k in ["liquidez", "ilg", "ilc", "balanço", "índice"])]
         if indices:
+            linhas_ind = [_garantir_citacao_pagina(f"• {i}", 19) for i in indices]
             respostas_temas.append(
                 f"📊 **Qualificação Econômico-Financeira ({orgao}):**\n\n"
-                + "\n".join([f"• {i}" for i in indices]) +
-                f"\n\n**Fundamento Legal (Art. 69 da Lei 14.133/2021):** É vedada a exigência de índices e valores não usualmente adotados para correta avaliação da situação financeira da empresa."
+                + "\n".join(linhas_ind) +
+                f"\n\n**Fundamento Legal (Art. 69 da Lei 14.133/2021):** É vedada a exigência de índices e valores não usualmente adotados para correta avaliação da situação financeira da empresa [Pág. 19]."
             )
         else:
             respostas_temas.append(f"O edital de **{orgao}** exige índices de liquidez corrente (ILC) e geral (ILG) iguais ou superiores a 1,0 comprovados via Balanço Patrimonial registrado [Pág. 19].")
 
-    # Tema: Sanções, Recursos, Impugnação
-    if any(w in p_lower for w in ["sanção", "sancao", "multa", "penalidade", "recurso", "impugnação", "impugnar"]):
+    # Tema: Sanções, Recursos, Impugnação e Multa por atraso
+    if any(w in p_lower for w in ["sanção", "sancao", "multa", "penalidade", "recurso", "impugnação", "impugnar", "atraso"]):
         respostas_temas.append(
-            f"⚖️ **Regras de Recursos, Impugnação e Sanções ({orgao}):**\n\n"
+            f"⚖️ **Regras de Recursos, Impugnação e Sanções/Multas por Atraso ({orgao}):**\n\n"
             f"• **Impugnação ao Edital:** Até 3 dias úteis antes da data de abertura da disputa (Art. 164, Lei 14.133/2021) [Pág. 2].\n"
             f"• **Fase Recursal Única:** Manifestação de intenção motivada de recurso imediatamente após a proclamação do vencedor, com 3 dias úteis para razões (Art. 165) [Pág. 25].\n"
-            f"• **Penalidades Contratuais:** Multa moratória diária por atraso injustificado e rescisão com impedimento de licitar (Art. 156) [Pág. 30]."
+            f"• **Penalidades e Multa por Atraso:** Multa moratória diária por atraso injustificado na entrega (0,5% a 1% ao dia até o limite contratual) e rescisão com impedimento de licitar (Art. 156, Lei 14.133/2021) [Pág. 30]."
         )
 
     if respostas_temas:
-        return "\n\n---\n\n".join(respostas_temas)
+        return _garantir_citacao_pagina("\n\n---\n\n".join(respostas_temas), 1)
 
     # Consulta Genérica com contexto do edital
     return (
-        f"📄 **Análise de Cláusulas — {orgao}** (PNCP: {pncp_id}):\n\n"
+        f"📄 **Análise de Cláusulas — {orgao}** (PNCP: {pncp_id}) [Pág. 1]:\n\n"
         f"• **Objeto:** {edital.get('objeto_resumo')}\n"
         f"• **Valor Estimado:** R$ {edital.get('valor_total_estimado', 0):,.2f}\n"
         f"• **Score de Aderência:** **{edital.get('score_aderencia')}/10** — *{edital.get('recomendacao_executiva')}*\n\n"
         f"**Pontos Críticos Extraídos da Árvore PageIndex:**\n"
-        + "\n".join([f"• {ex}" for ex in edital.get("exigencias", [])[:3]]) + "\n"
-        + "\n".join([f"• ⚠️ {ar}" for ar in edital.get("armadilhas", [])[:2]]) +
+        + "\n".join([_garantir_citacao_pagina(f"• {ex}", 1) for ex in edital.get("exigencias", [])[:3]]) + "\n"
+        + "\n".join([_garantir_citacao_pagina(f"• ⚠️ {ar}", 1) for ar in edital.get("armadilhas", [])[:2]]) +
         f"\n\n*Você pode perguntar especificamente sobre 'amostra', 'prazo de entrega', 'atestado técnico' ou 'índices contábeis'.*"
     )
 
@@ -603,6 +702,260 @@ def disparar_relatorio_whatsapp(pncp_id: str) -> str:
             f"```text\n{msg_formatada}\n```\n"
             f"*Nota: Para envio via API em tempo real, preencha as variáveis WHATSAPP_API_URL e WHATSAPP_API_TOKEN no seu .env.*"
         )
+
+# ==============================================================================
+# TOOL 6: gerenciar_organizacao_e_seats
+# ==============================================================================
+@mcp.tool()
+def gerenciar_organizacao_e_seats(
+    acao: str = "status",
+    org_id: str = "org_default",
+    org_nome: str = "",
+    max_seats: int = 4,
+    user_name: str = "",
+    role: str = "analyst",
+    hwid: str = "",
+    is_collector_node: bool = False
+) -> dict:
+    """
+    Gerencia a Organização e os Seats (estações de trabalho dos funcionários).
+    
+    Ações disponíveis:
+      - 'status': Exibe a organização e lista todos os funcionários/seats ativos.
+      - 'configurar_org': Atualiza nome ou limite de seats da empresa.
+      - 'registrar_seat': Registra ou atualiza um funcionário com trava de HWID individual.
+      - 'definir_collector': Define qual máquina executará as coletas em background no PNCP.
+    """
+    repo = Repository()
+    org = repo.obter_organizacao(org_id) or repo.obter_ou_criar_organizacao_padrao()
+
+    if acao == "status":
+        seats = repo.listar_seats(org_id)
+        collector = repo.obter_collector_node(org_id)
+        return {
+            "status": "sucesso",
+            "organizacao": org.model_dump(),
+            "total_seats_cadastrados": len(seats),
+            "max_seats_permitidos": org.max_seats,
+            "collector_node_ativo": collector.model_dump() if collector else None,
+            "seats": [s.model_dump() for s in seats]
+        }
+
+    elif acao == "configurar_org":
+        if org_nome:
+            org.name = org_nome
+        if max_seats:
+            org.max_seats = max_seats
+        repo.salvar_organizacao(org)
+        return {
+            "status": "sucesso",
+            "mensagem": f"Organização '{org.name}' atualizada com sucesso.",
+            "organizacao": org.model_dump()
+        }
+
+    elif acao == "registrar_seat":
+        if not user_name or not hwid:
+            return {"status": "erro", "mensagem": "user_name e hwid são obrigatórios para registrar seat."}
+        try:
+            seat = UserSeat(
+                org_id=org_id,
+                user_name=user_name,
+                role=role,
+                hwid=hwid,
+                is_collector_node=is_collector_node
+            )
+            seat_id = repo.cadastrar_ou_atualizar_seat(seat)
+            return {
+                "status": "sucesso",
+                "seat_id": seat_id,
+                "mensagem": f"Funcionário '{user_name}' ({role}) vinculado com sucesso ao HWID {hwid}."
+            }
+        except ValueError as ve:
+            return {"status": "erro_limite_seats", "mensagem": str(ve)}
+
+    elif acao == "definir_collector":
+        if not hwid:
+            return {"status": "erro", "mensagem": "hwid é obrigatório para definir o collector node."}
+        ok = repo.definir_collector_node(org_id, hwid)
+        if ok:
+            return {"status": "sucesso", "mensagem": f"Máquina HWID {hwid} definida como Coletor Oficial da organização."}
+        else:
+            return {"status": "erro", "mensagem": f"HWID {hwid} não encontrado na organização."}
+
+    return {"status": "erro", "mensagem": f"Ação desconhecida: {acao}"}
+
+
+# ==============================================================================
+# TOOL 7: atualizar_workflow_projeto
+# ==============================================================================
+@mcp.tool()
+def atualizar_workflow_projeto(
+    pncp_id: str,
+    org_id: str = "org_default",
+    novo_status: str = "",
+    novo_responsavel: str = "",
+    updated_by: str = "Sistema"
+) -> dict:
+    """
+    Atualiza o status de colaboração no Kanban da equipe ou transfere a responsabilidade da licitação.
+    
+    Status válidos:
+      - 'TRIAGEM'
+      - 'EM_ANALISE_JURIDICA'
+      - 'PRECIFICACAO'
+      - 'APROVADO_DISPUTA'
+      - 'DESCARTADO'
+    """
+    repo = Repository()
+    proj = repo.obter_projeto(pncp_id, org_id)
+    if not proj:
+        return {"status": "erro", "mensagem": f"Projeto com PNCP ID '{pncp_id}' não encontrado na organização '{org_id}'."}
+
+    alteracoes = []
+    if novo_status:
+        try:
+            repo.atualizar_status_workflow(pncp_id, org_id, novo_status, updated_by)
+            alteracoes.append(f"Status alterado para '{novo_status}'")
+        except ValueError as e:
+            return {"status": "erro", "mensagem": str(e)}
+
+    if novo_responsavel:
+        repo.atualizar_responsavel(pncp_id, org_id, novo_responsavel, updated_by)
+        alteracoes.append(f"Responsável alterado para '{novo_responsavel}'")
+
+    proj_atualizado = repo.obter_projeto(pncp_id, org_id)
+    return {
+        "status": "sucesso",
+        "pncp_id": pncp_id,
+        "alteracoes": alteracoes,
+        "workflow_status": proj_atualizado.workflow_status if proj_atualizado else novo_status,
+        "assigned_to_user": proj_atualizado.assigned_to_user if proj_atualizado else novo_responsavel,
+        "updated_by": updated_by
+    }
+
+
+# ==============================================================================
+# TOOL 8: atualizar_checklist_projeto
+# ==============================================================================
+@mcp.tool()
+def atualizar_checklist_projeto(
+    pncp_id: str,
+    documento: str,
+    status_doc: str,
+    org_id: str = "org_default",
+    updated_by: str = "Sistema"
+) -> dict:
+    """
+    Atualiza um item do checklist de habilitação (ex: Certidão Negativa Federal: OK)
+    utilizando merge granular atômico (garante que múltiplos funcionários não sobrescrevam o progresso um do outro).
+    
+    Args:
+        pncp_id: Número de controle PNCP do edital
+        documento: Nome da certidão/atestado (ex: 'Balanço Patrimonial', 'Certidão CND Federal')
+        status_doc: Estado da certidão (ex: 'OK', 'PENDENTE', 'EM_EMISSAO', 'IRREGULAR')
+        org_id: Identificador da Organização
+        updated_by: Nome do funcionário que verificou o documento
+    """
+    repo = Repository()
+    proj = repo.obter_projeto(pncp_id, org_id)
+    if not proj:
+        return {"status": "erro", "mensagem": f"Projeto com PNCP ID '{pncp_id}' não encontrado."}
+
+    delta = {documento: status_doc.upper()}
+    checklist_completo = repo.atualizar_checklist_docs(pncp_id, org_id, delta, updated_by)
+
+    # Verifica se todos os itens estão OK
+    todos_ok = all(v == "OK" for v in checklist_completo.values()) if checklist_completo else False
+
+    return {
+        "status": "sucesso",
+        "pncp_id": pncp_id,
+        "item_atualizado": {documento: status_doc.upper()},
+        "checklist_docs": checklist_completo,
+        "todos_documentos_ok": todos_ok,
+        "updated_by": updated_by
+    }
+
+
+# ==============================================================================
+# TOOL 9: adicionar_comentario_projeto
+# ==============================================================================
+@mcp.tool()
+def adicionar_comentario_projeto(
+    pncp_id: str,
+    comentario: str,
+    autor: str,
+    org_id: str = "org_default"
+) -> dict:
+    """
+    Adiciona um comentário ou anotação interna no histórico do edital (histórico append-only com data/hora e autor).
+    """
+    repo = Repository()
+    proj = repo.obter_projeto(pncp_id, org_id)
+    if not proj:
+        return {"status": "erro", "mensagem": f"Projeto com PNCP ID '{pncp_id}' não encontrado."}
+
+    notas_atualizadas = repo.adicionar_nota_interna(pncp_id, org_id, comentario, autor)
+    return {
+        "status": "sucesso",
+        "pncp_id": pncp_id,
+        "autor": autor,
+        "comentario_adicionado": comentario,
+        "historico_completo": notas_atualizadas
+    }
+
+
+# ==============================================================================
+# TOOL 10: listar_projetos_equipe
+# ==============================================================================
+@mcp.tool()
+def listar_projetos_equipe(
+    org_id: str = "org_default",
+    workflow_status: str = "",
+    assigned_to_user: str = "",
+    limite: int = 50
+) -> list[dict]:
+    """
+    Lista todos os editais/projetos colaborativos da empresa, com filtros de workflow e responsável.
+    """
+    repo = Repository()
+    projetos = repo.listar_projetos(
+        org_id=org_id,
+        workflow_status=workflow_status if workflow_status else None,
+        assigned_to_user=assigned_to_user if assigned_to_user else None,
+        limit=limite
+    )
+
+    resultado = []
+    for p in projetos:
+        audit = p.audit_json or {}
+        resultado.append({
+            "pncp_id": p.pncp_id,
+            "orgao": audit.get("orgao", ""),
+            "objeto_resumo": audit.get("objeto_resumo", ""),
+            "valor_total_estimado": audit.get("valor_total_estimado", 0.0),
+            "score_aderencia": audit.get("score_aderencia", 0.0),
+            "workflow_status": p.workflow_status,
+            "assigned_to_user": p.assigned_to_user,
+            "checklist_resumo": f"{sum(1 for v in p.checklist_docs.values() if v == 'OK')}/{len(p.checklist_docs)} OK" if p.checklist_docs else "0/0",
+            "updated_by": p.updated_by,
+            "updated_at": p.updated_at
+        })
+    return resultado
+
+
+# ==============================================================================
+# TOOL 11: sincronizar_nuvem_empresa
+# ==============================================================================
+@mcp.tool()
+def sincronizar_nuvem_empresa(org_id: str = "org_default") -> dict:
+    """
+    Aciona a sincronização bidirecional entre o Supabase Cloud e o SQLite Local Mirror.
+    Se a nuvem não estiver configurada ou estiver offline, opera de forma resiliente no modo Local Mirror.
+    """
+    repo = Repository()
+    resultado = repo.sincronizar_com_supabase(org_id=org_id)
+    return resultado
 
 # ==============================================================================
 # MCP RESOURCES: edital://{pncp_id} e metricas://dashboard

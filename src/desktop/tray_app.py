@@ -176,7 +176,7 @@ class ZenoRadarTrayApp:
                 width=1280,
                 height=820,
                 min_size=(1040, 700),
-                background_color="#ebeef2"
+                background_color="#F4F6F9"
             )
 
             # Notificação amigável

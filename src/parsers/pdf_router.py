@@ -80,9 +80,14 @@ class PDFRouter:
                     # Renderiza imagem da página em DPI 200 para qualidade de OCR
                     pix = page.get_pixmap(dpi=200)
                     img_bytes = pix.tobytes("png")
+                    del pix
+                    import gc
+                    gc.collect()
 
                     ocr_text = self.ocr_worker.extrair_texto_imagem(img_bytes)
-                    tables_md = self.ocr_worker.extrair_tabelas_markdown(img_bytes)
+                    tables_md = self.ocr_worker.extrair_tabelas_markdown(img_bytes, fallback_text=ocr_text or raw_text)
+                    if not tables_md and (ocr_text or raw_text):
+                        tables_md = self.ocr_worker._fallback_tabela_from_text(ocr_text or raw_text)
 
                     final_text = ocr_text if ocr_text else raw_text
                     paginas.append(PDFPageContent(
