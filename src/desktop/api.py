@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Desktop Bridge API (Python <-> JavaScript pywebview)
+Comunicação 100% assíncrona conectando a interface gráfica às MCP Tools reais do zeno_mcp.
+"""
+
 import os
 import sys
 import json
@@ -12,15 +18,24 @@ from src.database.repository import Repository
 from src.intelligence.chat_assistant import ChatAssistant
 from src.licensing.validator import LicenseValidator, ClientLicenseConfig
 from src.utils.paths import get_config_path, get_downloads_dir, get_app_dir
-from src.main import BidEngineOrchestrator
 from src.config import settings
 
-logger = logging.getLogger(__name__)
+# Importação das MCP Tools Reais do Servidor Central
+from src.mcp_server.zeno_mcp import (
+    mcp,
+    buscar_e_auditar_licitacoes,
+    listar_editais_salvos,
+    obter_metricas_dashboard,
+    consultar_clausula_edital,
+    disparar_relatorio_whatsapp,
+)
+
+logger = logging.getLogger("DesktopAPI")
 
 class DesktopAPI:
     """
     Bridge Python <-> JavaScript para o pywebview.
-    Comunicação 100% assíncrona com dados reais do SQLite e controle do motor.
+    Expõe as ferramentas do Servidor MCP (FastMCP) diretamente para o frontend.
     """
 
     def __init__(self, license_config: Optional[ClientLicenseConfig] = None):
@@ -30,7 +45,7 @@ class DesktopAPI:
         self.config_file = get_config_path()
         self.license_config = license_config or self._carregar_ou_criar_config()
         
-        # Estado do motor em tempo real
+        # Estado de varredura em tempo real
         self.scan_status = {
             "is_running": False,
             "step": "Aguardando comando",
@@ -48,7 +63,6 @@ class DesktopAPI:
             except Exception as e:
                 logger.warning(f"Erro ao ler config_cliente.json: {e}")
 
-        # Tentar validar licença do arquivo ou modo dev
         try:
             cfg = self.validator.validar_licenca(interactive_ui=False)
             self._salvar_config_arquivo(cfg)
@@ -70,20 +84,50 @@ class DesktopAPI:
         except Exception as e:
             logger.error(f"Erro ao salvar config_cliente.json: {e}")
 
-    def get_dashboard_data(self) -> Dict[str, Any]:
-        """Retorna todos os dados reais alimentados diretamente pelo SQLite."""
-        stats = self.repo.obter_estatisticas()
-        editais = self.repo.listar_editais_dashboard(limit=50)
+    # ==========================================================================
+    # EXPOSIÇÃO DIRETA DAS MCP TOOLS
+    # ==========================================================================
 
-        # Gráfico dinâmico calculado a partir dos editais reais do banco
-        grafico_dados = self._calcular_grafico_real(editais)
-        distribuicao_dados = self._calcular_distribuicao_real(editais)
+    def mcp_obter_metricas_dashboard(self) -> Dict[str, Any]:
+        """Tool MCP: obter_metricas_dashboard"""
+        return obter_metricas_dashboard()
+
+    def mcp_listar_editais_salvos(self, filtro_texto: str = "", score_minimo: float = 0.0) -> List[Dict[str, Any]]:
+        """Tool MCP: listar_editais_salvos"""
+        return listar_editais_salvos(filtro_texto=filtro_texto, score_minimo=score_minimo)
+
+    def mcp_buscar_e_auditar_licitacoes(self, uf: str = "MT", termo_busca: str = "", limite: int = 5) -> Dict[str, Any]:
+        """Tool MCP: buscar_e_auditar_licitacoes"""
+        return buscar_e_auditar_licitacoes(uf=uf, termo_busca=termo_busca, limite=limite)
+
+    def mcp_consultar_clausula_edital(self, pncp_id: str, pergunta_juridica: str) -> str:
+        """Tool MCP: consultar_clausula_edital"""
+        return consultar_clausula_edital(pncp_id=pncp_id, pergunta_juridica=pergunta_juridica)
+
+    def mcp_disparar_relatorio_whatsapp(self, pncp_id: str) -> str:
+        """Tool MCP: disparar_relatorio_whatsapp"""
+        return disparar_relatorio_whatsapp(pncp_id=pncp_id)
+
+    # ==========================================================================
+    # MÉTODOS DE SUPORTE À INTERFACE GRÁFICA
+    # ==========================================================================
+
+    def get_dashboard_data(self) -> Dict[str, Any]:
+        """Retorna todos os dados reais alimentados via MCP + SQLite."""
+        metricas = obter_metricas_dashboard()
+        editais = listar_editais_salvos()
 
         return {
-            "stats": stats,
+            "stats": {
+                "total_editais": metricas["total_editais_auditados"],
+                "volume_total": metricas["volume_total_disputa"],
+                "media_score": metricas["score_medio"],
+                "alta_aderencia": metricas["alta_aderencia"],
+                "taxa_aproveitamento": metricas["taxa_aproveitamento"]
+            },
             "editais": editais,
-            "grafico": grafico_dados,
-            "distribuicao": distribuicao_dados,
+            "grafico": metricas["distribuicao_semanal"],
+            "distribuicao": metricas["aderencia_por_nicho"],
             "cliente": {
                 "nome": self.license_config.client_name,
                 "uf": self.license_config.uf_target,
@@ -95,129 +139,56 @@ class DesktopAPI:
             "scan_status": self.scan_status
         }
 
-    def _calcular_grafico_real(self, editais: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Calcula barras reais de volume a partir dos editais existentes no SQLite."""
-        if not editais:
-            return {
-                "labels": ["Sem 1", "Sem 2", "Sem 3", "Sem 4", "Sem 5"],
-                "barras": [
-                    {"label": "Sem 1", "vol_blue": 0, "vol_lime": 0, "pct_blue": 5, "pct_lime": 10},
-                    {"label": "Sem 2", "vol_blue": 0, "vol_lime": 0, "pct_blue": 5, "pct_lime": 10},
-                    {"label": "Sem 3", "vol_blue": 0, "vol_lime": 0, "pct_blue": 5, "pct_lime": 10},
-                    {"label": "Sem 4", "vol_blue": 0, "vol_lime": 0, "pct_blue": 5, "pct_lime": 10},
-                    {"label": "Sem 5", "vol_blue": 0, "vol_lime": 0, "pct_blue": 5, "pct_lime": 10}
-                ]
-            }
-
-        # Divide os editais em até 5 fatias cronológicas
-        fatias = min(5, max(1, len(editais)))
-        barras = []
-        max_val = max([e.get("valor_total_estimado", 0.0) for e in editais] or [1.0])
-        if max_val <= 0:
-            max_val = 1.0
-
-        for i in range(5):
-            idx = i if i < len(editais) else len(editais) - 1
-            ed = editais[idx] if idx < len(editais) else {}
-            val = float(ed.get("valor_total_estimado", 0.0))
-            score = float(ed.get("score_aderencia", 5.0))
-            pct_lime = min(100, max(15, int((val / max_val) * 100)))
-            pct_blue = min(100, max(10, int(score * 10)))
-
-            barras.append({
-                "label": f"Lote {i+1}",
-                "vol_blue": round(val * 0.4, 2),
-                "vol_lime": round(val, 2),
-                "pct_blue": pct_blue,
-                "pct_lime": pct_lime,
-                "orgao": ed.get("orgao", "")[:25]
-            })
-
-        return {
-            "labels": [b["label"] for b in barras],
-            "barras": barras
-        }
-
-    def _calcular_distribuicao_real(self, editais: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Calcula distribuição real das categorias do nicho baseado nos objetos dos editais."""
-        ti_count = 0
-        hard_count = 0
-        soft_count = 0
-
-        for e in editais:
-            txt = (e.get("objeto_resumo", "") + " " + e.get("orgao", "")).lower()
-            if any(k in txt for k in ["computador", "notebook", "desktop", "hardware", "servidor"]):
-                hard_count += 1
-            if any(k in txt for k in ["software", "licença", "sistema", "nuvem"]):
-                soft_count += 1
-            if any(k in txt for k in ["ti", "informatica", "rede", "tecnologia", "nobreak"]):
-                ti_count += 1
-
-        total = len(editais) or 1
-        pct_hard = min(100, int((hard_count / total) * 100)) if hard_count > 0 else 75
-        pct_soft = min(100, int((soft_count / total) * 100)) if soft_count > 0 else 50
-        pct_ti = min(100, int((ti_count / total) * 100)) if ti_count > 0 else 90
-
-        return {
-            "bubble_1": {"val": str(len(editais)), "lbl": "Total Editais"},
-            "bubble_2": {"val": f"{pct_ti}%", "lbl": "Aderência TI"},
-            "bubble_3": {"val": f"{hard_count}", "lbl": "Hardware"},
-            "targets": [
-                {"name": "Hardware & Equipamentos", "pct": pct_hard, "color": "var(--neon-lime)"},
-                {"name": "Software & Licenciamento", "pct": pct_soft, "color": "var(--accent-blue)"},
-                {"name": "Serviços & Infraestrutura TI", "pct": pct_ti, "color": "#cbd5e1"}
-            ]
-        }
-
     def listar_editais(self, busca: str = "") -> List[Dict[str, Any]]:
-        """Pesquisa e filtra editais no SQLite."""
-        return self.repo.listar_editais_dashboard(limit=100, busca=busca)
+        """Pesquisa editais no SQLite via Tool MCP listar_editais_salvos."""
+        return listar_editais_salvos(filtro_texto=busca)
 
     def obter_edital_detalhes(self, numero_controle_pncp: str) -> Optional[Dict[str, Any]]:
         """Obtém detalhes do edital para o modal de auditoria."""
         return self.repo.obter_edital(numero_controle_pncp)
 
-    def disparar_varredura(self) -> Dict[str, Any]:
-        """Dispara varredura em background com emissão de etapas em tempo real."""
+    def disparar_varredura(self, termo_busca: str = "") -> Dict[str, Any]:
+        """Dispara varredura via MCP Tool em background com emissão de etapas."""
         if self.scan_status["is_running"]:
             return {"status": "ocupado", "mensagem": "Varredura já em andamento."}
 
         self.scan_status["is_running"] = True
-        self.scan_status["step"] = "Conectando ao PNCP..."
+        self.scan_status["step"] = "Varrendo PNCP e auditando PDFs via MCP..."
         self.scan_status["percent"] = 15
-        self.scan_status["mensagem"] = f"Consultando API do PNCP para UF={self.license_config.uf_target}..."
+        self.scan_status["mensagem"] = f"Consultando API do PNCP (UF={self.license_config.uf_target})..."
 
         def _worker():
             try:
-                time.sleep(0.5)
-                self.scan_status["step"] = "Filtrando editais por nicho..."
-                self.scan_status["percent"] = 35
+                time.sleep(0.3)
+                self.scan_status["step"] = "Baixando editais e anexos (Scrapling Furtivo)..."
+                self.scan_status["percent"] = 45
 
-                orchestrator = BidEngineOrchestrator(license_config=self.license_config)
-                
-                self.scan_status["step"] = "Baixando editais e anexos (Scrapling)..."
-                self.scan_status["percent"] = 60
+                time.sleep(0.3)
+                self.scan_status["step"] = "Roteando páginas (PyMuPDF / PaddleOCR) & PageIndex Tree..."
+                self.scan_status["percent"] = 70
 
-                novos = orchestrator.processar_ciclo(
+                # Executa a tool MCP
+                resultado = buscar_e_auditar_licitacoes(
                     uf=self.license_config.uf_target,
-                    dias_retroativos=settings.PNCP_LOOKBACK_DAYS,
-                    max_editais=5
+                    termo_busca=termo_busca,
+                    limite=5
                 )
 
+                novos = resultado.get("total_novos_auditados", 0)
                 self.scan_status["step"] = "Auditoria PageIndex & ReAct Concluída"
                 self.scan_status["percent"] = 100
                 self.scan_status["novos_editais"] = novos
-                self.scan_status["mensagem"] = f"Ciclo finalizado! {novos} novos editais auditados e salvos."
-                logger.info(f"Varredura finalizada pela UI: {novos} editais.")
+                self.scan_status["mensagem"] = f"Varredura MCP Concluída! {novos} novos editais auditados e registrados."
+                logger.info(f"Varredura MCP finalizada: {novos} novos editais.")
             except Exception as e:
-                logger.error(f"Erro na varredura: {e}")
-                self.scan_status["step"] = "Erro na execução"
+                logger.error(f"Erro na varredura MCP: {e}")
+                self.scan_status["step"] = "Erro na execução MCP"
                 self.scan_status["mensagem"] = str(e)[:120]
             finally:
                 self.scan_status["is_running"] = False
 
         threading.Thread(target=_worker, daemon=True).start()
-        return {"status": "iniciado", "mensagem": "Varredura iniciada em segundo plano."}
+        return {"status": "iniciado", "mensagem": "Varredura iniciada via MCP."}
 
     def obter_status_varredura(self) -> Dict[str, Any]:
         """Retorna o estado da varredura em tempo real para a barra de progresso."""
@@ -248,13 +219,12 @@ class DesktopAPI:
 
     def listar_relatorios_pdfs(self) -> List[Dict[str, Any]]:
         """
-        Escaneia a pasta persistente de downloads e cruza com os editais do SQLite.
-        Retorna arquivos baixados para a galeria interna da View Relatórios.
+        Escaneia a pasta persistente %LOCALAPPDATA%\\ZenoRadar\\downloads\\
+        e cruza com os editais do SQLite para exibir na Galeria Interna.
         """
         pasta = get_downloads_dir()
         arquivos = []
         
-        # Mapeia editais para associar aos arquivos
         editais = self.repo.listar_editais_dashboard(limit=100)
         mapa_editais = {e["numero_controle_pncp"]: e for e in editais}
 
@@ -265,10 +235,10 @@ class DesktopAPI:
                     tam_mb = round(stat.st_size / (1024 * 1024), 2)
                     dt_str = datetime.fromtimestamp(stat.st_mtime).strftime("%d/%m/%Y %H:%M")
                     
-                    # Tenta identificar o edital pelo nome do arquivo ou pasta
                     edital_info = None
                     for num_pncp, ed in mapa_editais.items():
-                        if num_pncp in str(f) or num_pncp.replace("/", "-") in str(f):
+                        clean_num = num_pncp.replace("/", "_").replace("-", "_")
+                        if num_pncp in str(f) or clean_num in str(f):
                             edital_info = ed
                             break
 
@@ -282,7 +252,7 @@ class DesktopAPI:
                         "orgao": edital_info["orgao"] if edital_info else "Documento de Licitação"
                     })
 
-        # Se não houver arquivos físicos baixados ainda, cria cartões virtuais dos editais auditados no banco
+        # Fallback para relatórios virtuais de editais já auditados caso não haja arquivos físicos
         if not arquivos:
             for ed in editais:
                 arquivos.append({
@@ -298,7 +268,7 @@ class DesktopAPI:
         return arquivos
 
     def abrir_arquivo_pdf(self, caminho: str) -> Dict[str, Any]:
-        """Abre o arquivo PDF no visualizador padrão do sistema."""
+        """Abre o arquivo PDF no visualizador padrão do sistema operacional."""
         try:
             p = Path(caminho)
             if p.exists():
@@ -352,7 +322,7 @@ class DesktopAPI:
 {chr(10).join([f"- Item {it['item']}: {it['descricao']} (Qtd: {it['quantidade']} | Teto: R$ {it['valor_unitario_teto']:,.2f})" for it in edital['itens']])}
 
 ---
-*Gerado automaticamente pelo Zeno Radar OaaS — Custo Zero de Servidor.*
+*Gerado automaticamente pelo Zeno Radar OaaS via MCP Tool.*
 """
         try:
             filepath.write_text(conteudo, encoding="utf-8")
@@ -362,41 +332,14 @@ class DesktopAPI:
         except Exception as e:
             return {"status": "erro", "mensagem": str(e)}
 
-    def enviar_resumo_whatsapp(self, numero_controle_pncp: str, telefone: Optional[str] = None) -> Dict[str, Any]:
-        """Dispara envio do resumo executivo para o WhatsApp configurado."""
-        edital = self.repo.obter_edital(numero_controle_pncp)
-        if not edital:
-            return {"status": "erro", "mensagem": "Edital não encontrado."}
-
-        tel = telefone or self.license_config.whatsapp_number
-        if not tel:
-            return {"status": "erro", "mensagem": "Número de WhatsApp não configurado. Adicione na aba de configurações."}
-
-        from src.notifier.whatsapp_sender import WhatsAppSender
-        from src.database.models import EditalAuditado, ItemLote
-
-        sender = WhatsAppSender()
-        itens_objs = [ItemLote(**it) for it in edital.get("itens", [])]
-        auditado = EditalAuditado(
-            numero_controle_pncp=edital["numero_controle_pncp"],
-            orgao=edital["orgao"],
-            modalidade=edital["modalidade"],
-            data_disputa=edital["data_disputa"],
-            portal_disputa=edital["portal_disputa"],
-            objeto_resumo=edital["objeto_resumo"],
-            valor_total_estimado=edital["valor_total_estimado"],
-            score_aderencia=edital["score_aderencia"],
-            recomendacao_executiva=edital["recomendacao_executiva"],
-            itens_interesse_cliente=itens_objs,
-            exigencias_habilitacao_criticas=edital.get("exigencias", []),
-            armadilhas_e_riscos=edital.get("armadilhas", [])
-        )
-        ok = sender.enviar_alerta(auditado)
+    def enviar_resumo_whatsapp(self, numero_controle_pncp: str) -> Dict[str, Any]:
+        """Dispara envio do resumo executivo para o WhatsApp via Tool MCP."""
+        res_str = disparar_relatorio_whatsapp(pncp_id=numero_controle_pncp)
         return {
-            "status": "ok" if ok else "simulado",
-            "mensagem": f"Alerta enviado para o WhatsApp {tel}!" if ok else "WhatsApp simulado/registrado (configure o gateway no .env)."
+            "status": "ok",
+            "mensagem": res_str
         }
 
     def chat_perguntar(self, pergunta: str, numero_controle_pncp: Optional[str] = None) -> Dict[str, Any]:
-        """Envia mensagem ao Chatbot Especialista de Licitações."""
+        """Envia mensagem ao Chatbot ReAct equipado com as tools MCP."""
         return self.chat_assistant.responder(pergunta=pergunta, numero_controle_pncp=numero_controle_pncp)

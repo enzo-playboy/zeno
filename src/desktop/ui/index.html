@@ -1194,15 +1194,15 @@
         </div>
 
         <div class="header-right">
-          <!-- Botão Primário Verde-Limão de Busca -->
-          <button class="btn-buscar-licitacoes" id="btn-iniciar-varredura" onclick="dispararVarreduraCompleta()">
+          <!-- Botão Primário Verde-Limão de Busca via MCP -->
+          <button class="btn-buscar-licitacoes" id="btn-iniciar-varredura" onclick="acionarBuscaPNCP()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            🔍 Buscar Licitações Agora
+            ⚡ Buscar no PNCP
           </button>
 
           <div class="search-bar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="input-search" placeholder="Filtrar por órgão ou item..." oninput="filtrarGeral(this.value)">
+            <input type="text" id="input-search" placeholder="Buscar órgão, pregão ou item..." onkeydown="if(event.key==='Enter') acionarBuscaPNCP(this.value)" oninput="filtrarGeral(this.value)">
           </div>
 
           <div class="profile-pill" onclick="abrirConfigModal()">
@@ -1382,11 +1382,11 @@
               </div>
             </div>
 
-            <!-- Seletor de Contexto do Edital -->
-            <div class="chat-selector-wrap">
-              <span>Edital em foco:</span>
-              <select id="chat-edital-select" onchange="selecionarEditalChat(this.value)">
-                <option value="">Todos os Editais (Conhecimento Geral)</option>
+            <!-- Seletor Arredondado (rounded-full) no Topo do Chat -->
+            <div class="chat-selector-wrap" style="background:#f1f5f9; padding:6px 14px; border-radius:9999px; border:1px solid var(--border); display:flex; align-items:center; gap:8px;">
+              <span style="font-size:0.84rem; font-weight:800; color:#0f172a; white-space:nowrap;">📄 Edital em Foco:</span>
+              <select id="chat-edital-select" style="border-radius:9999px; padding:6px 14px; border:1px solid var(--border); font-size:0.83rem; font-weight:700; background:#ffffff; outline:none; color:var(--text-main); cursor:pointer;" onchange="selecionarEditalChat(this.value)">
+                <option value="">[Selecionar Edital do Banco ou Todos]</option>
               </select>
             </div>
           </div>
@@ -1395,19 +1395,20 @@
           <div class="chat-view-messages" id="chat-messages">
             <div class="chat-msg bot">
               <div class="chat-bubble">
-                Olá! Sou o **Zeno Bot**, seu assistente e auditor jurídico de licitações.<br><br>
+                Olá! Sou o **Zeno Bot**, seu assistente e auditor jurídico de licitações conectado via **MCP**.<br><br>
                 Selecione um edital no topo para analisar cláusulas específicas ou tire dúvidas sobre **prazos de entrega**, **atestados técnicos**, **armadilhas contratuais** e **regras da Nova Lei 14.133/2021**!
               </div>
             </div>
           </div>
 
-          <!-- Chips de Sugestão -->
+          <!-- Chips de Sugestão e Ação Rápida MCP -->
           <div class="quick-chips-bar">
             <button class="chip-btn" onclick="enviarPerguntaChip('⏱ Qual o prazo de entrega estipulado neste edital?')">⏱ Prazo de Entrega</button>
             <button class="chip-btn" onclick="enviarPerguntaChip('📋 Quais são as exigências críticas de habilitação e atestado técnico?')">📋 Atestado Técnico</button>
-            <button class="chip-btn" onclick="enviarPerguntaChip('🚨 Quais armadilhas e riscos operacionais foram identificados?')">🚨 Armadilhas e Riscos</button>
             <button class="chip-btn" onclick="enviarPerguntaChip('📊 Quais os índices de liquidez ou balanço patrimonial exigidos?')">📊 Índices Contábeis</button>
-            <button class="chip-btn" onclick="enviarPerguntaChip('💰 Quais os lotes e valores unitários de referência deste pregão?')">💰 Lotes e Valores</button>
+            <button class="chip-btn" onclick="enviarPerguntaChip('🔍 Procurar Novas Licitações no MT')">🔍 Procurar Novas Licitações no MT</button>
+            <button class="chip-btn" onclick="enviarPerguntaChip('🚨 Quais armadilhas e riscos operacionais foram identificados?')">🚨 Armadilhas e Riscos</button>
+            <button class="chip-btn" onclick="enviarPerguntaChip('📲 Disparar relatório executivo deste edital no WhatsApp')">📲 WhatsApp</button>
           </div>
 
           <!-- Input Pílula -->
@@ -1702,23 +1703,33 @@
       tbody.innerHTML = '';
 
       if (!lista || lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-muted);">Nenhum edital encontrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-muted);">Nenhum edital encontrado no SQLite.</td></tr>';
         return;
       }
 
       lista.forEach(ed => {
         const scoreClass = ed.score_aderencia >= 7 ? 'score-high' : (ed.score_aderencia >= 5 ? 'score-med' : 'score-low');
+        const exigenciasArr = ed.exigencias_habilitacao || ed.exigencias || [];
+        const exigenciasPreview = exigenciasArr.slice(0, 2).map(ex => `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">• ${destacarCitacao(ex)}</div>`).join('');
+        const btnPdf = ed.caminho_pdf 
+          ? `<button class="btn-action-outline" style="border-color:#60a5fa; color:#2563eb;" onclick="abrirArquivo('${ed.caminho_pdf.replace(/\\/g, '/')}')">📄 Abrir PDF</button>`
+          : '';
+
         tbody.innerHTML += `
           <tr>
             <td><strong style="font-family:'JetBrains Mono'; font-size:0.8rem;">${ed.numero_controle_pncp}</strong></td>
             <td><strong>${ed.orgao}</strong></td>
-            <td style="max-width:260px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${ed.objeto_resumo}">${ed.objeto_resumo}</td>
+            <td style="max-width:250px;" title="${ed.objeto_resumo}">
+              <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600;">${ed.objeto_resumo}</div>
+              ${exigenciasPreview}
+            </td>
             <td>${ed.data_disputa || 'A definir'}</td>
             <td><strong>${formatarMoeda(ed.valor_total_estimado)}</strong></td>
             <td><span class="score-badge ${scoreClass}">★ ${ed.score_aderencia}/10</span></td>
-            <td style="display:flex; gap:6px;">
-              <button class="btn-action-outline" onclick="abrirAuditoria('${ed.numero_controle_pncp}')">Ver Auditoria Completa</button>
-              <button class="btn-action-outline" style="background:#B8FF01; color:#0f172a; border-color:#B8FF01;" onclick="irParaChatComEdital('${ed.numero_controle_pncp}')">Perguntar no Chat IA</button>
+            <td style="display:flex; flex-wrap:wrap; gap:6px;">
+              <button class="btn-action-outline" onclick="abrirAuditoria('${ed.numero_controle_pncp}')">Ver Auditoria</button>
+              ${btnPdf}
+              <button class="btn-action-outline" style="background:#B8FF01; color:#0f172a; border-color:#B8FF01;" onclick="irParaChatComEdital('${ed.numero_controle_pncp}')">💬 Chatbot IA</button>
             </td>
           </tr>
         `;
@@ -1787,13 +1798,17 @@
     // Chatbot IA
     function atualizarSeletorChat(lista) {
       const select = document.getElementById('chat-edital-select');
-      select.innerHTML = '<option value="">Todos os Editais (Conhecimento Geral)</option>';
+      const valAtual = select.value;
+      select.innerHTML = '<option value="">[Selecionar Edital do Banco ou Todos]</option>';
       lista.forEach(ed => {
         const opt = document.createElement('option');
         opt.value = ed.numero_controle_pncp;
         opt.innerText = `${ed.orgao.substring(0, 32)} (${ed.numero_controle_pncp})`;
         select.appendChild(opt);
       });
+      if (valAtual) {
+        select.value = valAtual;
+      }
     }
 
     function selecionarEditalChat(numPncp) {
@@ -1935,35 +1950,40 @@
       }
     }
 
-    // Disparador de Varredura com Barra de Progresso Real
-    async function dispararVarreduraCompleta() {
+    // Disparador de Varredura PNCP via MCP com Barra de Progresso Real
+    async function acionarBuscaPNCP(termoManual = "") {
       const banner = document.getElementById('scan-banner');
       const stepText = document.getElementById('scan-step-text');
       const fill = document.getElementById('scan-progress-fill');
       const btn = document.getElementById('btn-iniciar-varredura');
+      const searchInput = document.getElementById('input-search');
+
+      const termo = (typeof termoManual === 'string' && termoManual.trim()) 
+        ? termoManual.trim() 
+        : (searchInput ? searchInput.value.trim() : "");
 
       btn.disabled = true;
-      btn.innerText = "Varrendo PNCP...";
+      btn.innerHTML = `<span class="spinner" style="width:14px; height:14px; border-width:2px; display:inline-block; vertical-align:middle; margin-right:6px;"></span> Varrendo PNCP...`;
       banner.classList.add('active');
-      fill.style.width = "20%";
-      stepText.innerText = "Consultando API do PNCP...";
+      fill.style.width = "25%";
+      stepText.innerText = "Varrendo PNCP e auditando PDFs via MCP...";
 
       if (window.pywebview && window.pywebview.api) {
-        await window.pywebview.api.disparar_varredura();
+        await window.pywebview.api.disparar_varredura(termo);
 
-        // Polling do status da varredura
+        // Polling do status da varredura MCP
         const timer = setInterval(async () => {
           const status = await window.pywebview.api.obter_status_varredura();
           if (status) {
-            stepText.innerText = status.step || "Processando...";
+            stepText.innerText = status.step || "Varrendo PNCP e auditando PDFs via MCP...";
             fill.style.width = `${status.percent || 30}%`;
 
             if (!status.is_running && status.percent >= 100) {
               clearInterval(timer);
               btn.disabled = false;
-              btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 🔍 Buscar Licitações Agora`;
+              btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> ⚡ Buscar no PNCP`;
               setTimeout(() => banner.classList.remove('active'), 2500);
-              mostrarToast(status.mensagem || "Varredura concluída!");
+              mostrarToast(status.mensagem || "Varredura MCP concluída com sucesso!");
               await carregarDados();
               await carregarRelatoriosPdfs();
             }
@@ -1972,16 +1992,18 @@
       } else {
         setTimeout(async () => {
           fill.style.width = "100%";
-          stepText.innerText = "Auditoria PageIndex Concluída!";
+          stepText.innerText = "Auditoria PageIndex & ReAct Concluída via MCP!";
           setTimeout(() => {
             banner.classList.remove('active');
             btn.disabled = false;
-            btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 🔍 Buscar Licitações Agora`;
-            mostrarToast("Varredura finalizada!");
+            btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> ⚡ Buscar no PNCP`;
+            mostrarToast("Varredura MCP finalizada!");
           }, 2000);
         }, 3000);
       }
     }
+
+    const dispararVarreduraCompleta = acionarBuscaPNCP;
 
     // Modal de Configuração do Cliente
     function abrirConfigModal() {
