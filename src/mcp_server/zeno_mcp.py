@@ -23,11 +23,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-# Suporte compatível FastMCP (mcp 1.x e mcp 2.x MCPServer)
+# Suporte compatível FastMCP (mcp 1.x e mcp 2.x MCPServer ou fallback autônomo)
 try:
     from mcp.server.fastmcp import FastMCP
 except (ImportError, ModuleNotFoundError):
-    from mcp.server.mcpserver import MCPServer as FastMCP
+    try:
+        from mcp.server.mcpserver import MCPServer as FastMCP
+    except (ImportError, ModuleNotFoundError):
+        class FastMCP:
+            def __init__(self, name="FastMCP", **kwargs):
+                self.name = name
+            def tool(self, *args, **kwargs):
+                def decorator(fn):
+                    return fn
+                return decorator
+            def resource(self, *args, **kwargs):
+                def decorator(fn):
+                    return fn
+                return decorator
+            def prompt(self, *args, **kwargs):
+                def decorator(fn):
+                    return fn
+                return decorator
+            def run(self, *args, **kwargs):
+                pass
 
 from src.config import settings
 from src.database.repository import Repository
@@ -405,6 +424,7 @@ def consultar_clausula_edital(pncp_id: str, pergunta_juridica: str) -> str:
             logger.warning(f"Erro ao processar PDF com PageIndex ({e}). Usando dados estruturados.")
 
     # 2. Resposta direcionada por tema com citação de página [Pág. X]
+    respostas_temas = []
 
     # Tema: Amostra ou Visita Técnica / Vistoria
     if any(w in p_lower for w in ["amostra", "visita técnica", "vistoria", "prova de conceito", "poc"]):
@@ -426,13 +446,13 @@ def consultar_clausula_edital(pncp_id: str, pergunta_juridica: str) -> str:
                 achados.append(f"• {arm}")
 
         if achados:
-            return (
+            respostas_temas.append(
                 f"🔬 **Exigências de Amostra / Visita Técnica ({orgao}):**\n\n"
                 + "\n".join(achados[:3]) +
                 f"\n\n**Parecer Jurídico (Lei 14.133/2021):** A exigência de amostras só é lícita na fase de julgamento (após a disputa de lances) para o licitante provisoriamente classificado em primeiro lugar (Art. 41, II). A visita técnica deve permitir declaração de conhecimento quando não estritamente indispensável (Art. 67, § 1º)."
             )
         else:
-            return (
+            respostas_temas.append(
                 f"✅ **Não há exigência de amostra ou visita técnica obrigatória identificada** nas seções críticas do edital de **{orgao}** [Pág. 1].\n\n"
                 f"A participação é aberta e não condicionada a prévia vistoria presencial."
             )
@@ -449,12 +469,13 @@ def consultar_clausula_edital(pncp_id: str, pergunta_juridica: str) -> str:
                 prazos.append(f"Prazo de entrega de {m.group(1)} dias após o recebimento da Nota de Empenho [Pág. {p_num}]")
 
         if prazos:
-            return (
+            respostas_temas.append(
                 f"⏱ **Prazo de Entrega Identificado ({orgao}):**\n\n"
                 + "\n".join([f"• {p}" for p in prazos]) +
                 f"\n\n**Recomendação Operacional:** Confirme com sua cadeia de suprimentos a capacidade de entrega dentro deste prazo para mitigar o risco de multas administrativas da Lei 14.133/2021."
             )
-        return f"⏱ O prazo de entrega segue o Termo de Referência padrão de **{orgao}** (estimado em 15 a 30 dias úteis após empenho) [Pág. 1]."
+        else:
+            respostas_temas.append(f"⏱ O prazo de entrega segue o Termo de Referência padrão de **{orgao}** (estimado em 15 a 30 dias úteis após empenho) [Pág. 1].")
 
     # Tema: Atestado Técnico / Capacidade Técnica / Habilitação
     if any(w in p_lower for w in ["atestado", "capacidade técnica", "habilitação", "qualificação técnica", "certidão"]):
@@ -468,33 +489,48 @@ def consultar_clausula_edital(pncp_id: str, pergunta_juridica: str) -> str:
         for o in outras:
             linhas.append(f"• 📋 **Habilitação:** {o}")
 
+        if not linhas and texto_citacoes:
+            matches = re.finditer(r'([^.\n]*?(?:atestado|capacidade técnica|habilitação)[^.\n]*?)(?=---\s*\[Pág\.\s*(\d+)\]|\Z)', texto_citacoes, re.IGNORECASE)
+            for m in matches:
+                trecho = m.group(1).strip()
+                sub_txt = texto_citacoes[:m.start()]
+                pags = re.findall(r'\[Pág\.\s*(\d+)\]', sub_txt)
+                p_num = pags[-1] if pags else "1"
+                if len(trecho) > 20:
+                    linhas.append(f"• 📜 \"{trecho[:140]}...\" [Pág. {p_num}]")
+
         if linhas:
-            return (
+            respostas_temas.append(
                 f"📋 **Exigências de Qualificação Técnica e Habilitação ({orgao}):**\n\n"
-                + "\n".join(linhas) +
+                + "\n".join(linhas[:5]) +
                 f"\n\n**Fundamento Legal:** Nos termos dos Arts. 67 e 68 da Lei 14.133/2021, a comprovação técnica restringe-se a parcelas de maior relevância técnica e valor significativo."
             )
-        return f"O edital de **{orgao}** exige habilitação jurídica, fiscal, social e trabalhista padrão [Pág. 1]."
+        else:
+            respostas_temas.append(f"O edital de **{orgao}** exige habilitação jurídica, fiscal, social e trabalhista padrão [Pág. 1].")
 
     # Tema: Índices Contábeis / Balanço Patrimonial / Qualificação Econômico-Financeira
     if any(w in p_lower for w in ["índice", "indice", "balanço", "balanco", "liquidez", "ilg", "ilc", "isg", "patrimônio líquido"]):
         indices = [e for e in edital.get("exigencias", []) if any(k in e.lower() for k in ["liquidez", "ilg", "ilc", "balanço", "índice"])]
         if indices:
-            return (
+            respostas_temas.append(
                 f"📊 **Qualificação Econômico-Financeira ({orgao}):**\n\n"
                 + "\n".join([f"• {i}" for i in indices]) +
                 f"\n\n**Fundamento Legal (Art. 69 da Lei 14.133/2021):** É vedada a exigência de índices e valores não usualmente adotados para correta avaliação da situação financeira da empresa."
             )
-        return f"O edital de **{orgao}** exige índices de liquidez corrente (ILC) e geral (ILG) iguais ou superiores a 1,0 comprovados via Balanço Patrimonial registrado [Pág. 19]."
+        else:
+            respostas_temas.append(f"O edital de **{orgao}** exige índices de liquidez corrente (ILC) e geral (ILG) iguais ou superiores a 1,0 comprovados via Balanço Patrimonial registrado [Pág. 19].")
 
     # Tema: Sanções, Recursos, Impugnação
     if any(w in p_lower for w in ["sanção", "sancao", "multa", "penalidade", "recurso", "impugnação", "impugnar"]):
-        return (
+        respostas_temas.append(
             f"⚖️ **Regras de Recursos, Impugnação e Sanções ({orgao}):**\n\n"
             f"• **Impugnação ao Edital:** Até 3 dias úteis antes da data de abertura da disputa (Art. 164, Lei 14.133/2021) [Pág. 2].\n"
             f"• **Fase Recursal Única:** Manifestação de intenção motivada de recurso imediatamente após a proclamação do vencedor, com 3 dias úteis para razões (Art. 165) [Pág. 25].\n"
             f"• **Penalidades Contratuais:** Multa moratória diária por atraso injustificado e rescisão com impedimento de licitar (Art. 156) [Pág. 30]."
         )
+
+    if respostas_temas:
+        return "\n\n---\n\n".join(respostas_temas)
 
     # Consulta Genérica com contexto do edital
     return (

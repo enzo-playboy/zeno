@@ -1,8 +1,42 @@
 import os
 from pathlib import Path
 from typing import List
-from pydantic_settings import BaseSettings
-from pydantic import Field
+try:
+    from pydantic_settings import BaseSettings
+except (ImportError, ModuleNotFoundError):
+    try:
+        from pydantic import BaseSettings
+    except (ImportError, ModuleNotFoundError):
+        try:
+            from pydantic import BaseModel as BaseSettings
+        except (ImportError, ModuleNotFoundError):
+            class BaseSettings:
+                def __init__(self, **kwargs):
+                    for k, v in self.__class__.__dict__.items():
+                        if not k.startswith("_") and not callable(v):
+                            env_val = os.getenv(k)
+                            if env_val is not None:
+                                if isinstance(v, bool):
+                                    setattr(self, k, env_val.lower() in ("1", "true", "yes"))
+                                elif isinstance(v, int):
+                                    try:
+                                        setattr(self, k, int(env_val))
+                                    except ValueError:
+                                        pass
+                                else:
+                                    setattr(self, k, env_val)
+                            else:
+                                setattr(self, k, v)
+                    for k, v in kwargs.items():
+                        setattr(self, k, v)
+
+try:
+    from pydantic import Field
+except (ImportError, ModuleNotFoundError):
+    def Field(default=None, default_factory=None, **kwargs):
+        if default_factory is not None:
+            return default_factory()
+        return default
 
 from src.utils.paths import get_db_path, get_downloads_dir
 
