@@ -11,6 +11,7 @@ import logging
 import threading
 import time
 from typing import Dict, Any, List, Optional
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -19,6 +20,14 @@ from src.intelligence.chat_assistant import ChatAssistant
 from src.licensing.validator import LicenseValidator, ClientLicenseConfig
 from src.utils.paths import get_config_path, get_downloads_dir, get_app_dir
 from src.config import settings
+from src.collectors.pncp_api import PNCPClient
+from src.collectors.scrapling_fetcher import ScraplingFetcher
+from src.parsers.pdf_router import PDFRouter
+from src.intelligence.pageindex_tree import PageIndexTree
+from src.intelligence.react_auditor import AuditorReActAgent
+from src.collectors.apify_client import ApifyClient
+from src.cache.redis_client import get_redis_cache
+
 
 # Importação das MCP Tools Reais do Servidor Central
 from src.mcp_server.zeno_mcp import (
@@ -44,14 +53,28 @@ class DesktopAPI:
         self.validator = LicenseValidator()
         self.config_file = get_config_path()
         self.license_config = license_config or self._carregar_ou_criar_config()
+        self.redis_cache = get_redis_cache()
         
-        # Estado de varredura em tempo real
+        # Estado de varredura geral em tempo real
         self.scan_status = {
             "is_running": False,
             "step": "Aguardando comando",
             "percent": 0,
             "novos_editais": 0,
             "mensagem": "Pronto para varredura"
+        }
+
+        # Estado de varredura por link específico em tempo real
+        self.scan_link_status = {
+            "is_running": False,
+            "step": "Pronto",
+            "percent": 0,
+            "mensagem": "Aguardando link de licitação...",
+            "detalhes": "",
+            "logs": [],
+            "url": "",
+            "edital": None,
+            "error": None
         }
 
     def _carregar_ou_criar_config(self) -> ClientLicenseConfig:
@@ -194,6 +217,238 @@ class DesktopAPI:
         """Retorna o estado da varredura em tempo real para a barra de progresso."""
         return self.scan_status
 
+    def obter_status_scan_link(self) -> Dict[str, Any]:
+        """
+        Retorna o progresso em tempo real do Scan por Link para a tela de carregamento animada.
+        Chamado periodicamente pelo frontend (polling a cada 300ms).
+        """
+        return self.scan_link_status
+
+    def scan_por_link(self, url: str) -> Dict[str, Any]:
+        """
+        Chamado pelo JS: window.pywebview.api.scan_por_link(url)
+        Pipeline Completo de Varredura por Link:
+        1. Parser de URL PNCP (extrai CNPJ, Ano, Sequencial e ID Canônico)
+        2. Consulta Cache Redis (se já auditado, devolve instantaneamente)
+        3. Scraping Obrigatório da página do PNCP com Scrapling (Fetcher/Stealthy)
+        4. Consulta API REST do PNCP (arquivos e lotes de itens)
+        5. Download de anexos essenciais (Edital, TR, ETP) via Scrapling
+        6. Leitura e OCR de PDFs com PDFRouter (PyMuPDF / PaddleOCR) & PageIndex Tree
+        7. Auditoria por IA do projeto (ReAct Jurídico): extrai Leis, Brechas/Riscos, Obrigações e Pontos de Atenção
+        8. Gravação no Redis Cache e persistência no SQLite
+        """
+        if self.scan_link_status["is_running"]:
+            return {
+                "status": "ocupado",
+                "mensagem": "Um scan por link já está em andamento. Aguarde a finalização.",
+                "progresso": self.scan_link_status
+            }
+
+        url_limpa = (url or "").strip()
+        if not url_limpa:
+            return {"status": "erro", "mensagem": "O link ou ID do edital não foi fornecido."}
+
+        self.scan_link_status["is_running"] = True
+        self.scan_link_status["percent"] = 5
+        self.scan_link_status["step"] = "Identificando Link"
+        self.scan_link_status["mensagem"] = "Validando formato e extraindo identificadores do PNCP..."
+        self.scan_link_status["detalhes"] = url_limpa
+        self.scan_link_status["logs"] = [f"Iniciando scan para: {url_limpa}"]
+        self.scan_link_status["url"] = url_limpa
+        self.scan_link_status["edital"] = None
+        self.scan_link_status["error"] = None
+
+        def _worker_scan():
+            import time
+            redis_cache = self.redis_cache
+
+            def _log(msg: str):
+                logger.info(f"[ScanLink] {msg}")
+                self.scan_link_status["logs"].append(msg)
+                if len(self.scan_link_status["logs"]) > 30:
+                    self.scan_link_status["logs"] = self.scan_link_status["logs"][-30:]
+
+            try:
+                # 1. PARSER DE URL PNCP
+                time.sleep(0.3)
+                info_link = ScraplingFetcher.extrair_parametros_url(url_limpa)
+                cnpj = info_link["cnpj"]
+                ano = info_link["ano"]
+                seq = info_link["sequencial"]
+                num_pncp = info_link["numero_controle_pncp"]
+                canonical_url = info_link["canonical_url"]
+
+                _log(f"Link parseado com sucesso: CNPJ {cnpj} | Ano {ano} | Seq {seq} | ID: {num_pncp}")
+                self.scan_link_status["percent"] = 15
+                self.scan_link_status["step"] = "Link Identificado"
+                self.scan_link_status["mensagem"] = f"Edital {num_pncp} identificado."
+                self.scan_link_status["detalhes"] = f"CNPJ: {cnpj} • Sequencial: {seq}/{ano}"
+
+                # 2. CONSULTA AO CACHE REDIS
+                _log("Verificando se edital já existe no Cache Redis...")
+                self.scan_link_status["percent"] = 25
+                self.scan_link_status["step"] = "Consultando Redis"
+                self.scan_link_status["mensagem"] = "Verificando se já existe auditoria em cache no Redis..."
+
+                ed_cached = redis_cache.obter_auditoria_scan(num_pncp) or redis_cache.obter_auditoria_scan(canonical_url)
+                if ed_cached and (ed_cached.get("armadilhas") or ed_cached.get("exigencias") or ed_cached.get("armadilhas_e_riscos")):
+                    _log("Cache HIT no Redis! Auditoria carregada instantaneamente da memória.")
+                    ed_cached["from_cache"] = True
+                    self.scan_link_status["percent"] = 100
+                    self.scan_link_status["step"] = "Concluído (Redis Cache)"
+                    self.scan_link_status["mensagem"] = "Auditoria recuperada instantaneamente do Cache Redis!"
+                    self.scan_link_status["edital"] = ed_cached
+                    self.scan_link_status["is_running"] = False
+                    return
+
+                # 3. SCRAPING OBRIGATÓRIO DA PÁGINA COM SCRAPLING
+                time.sleep(0.3)
+                _log("Iniciando raspagem furtiva da página PNCP com Scrapling...")
+                self.scan_link_status["percent"] = 40
+                self.scan_link_status["step"] = "Raspagem Scrapling"
+                self.scan_link_status["mensagem"] = "Raspando página do edital com Scrapling furtivo..."
+                self.scan_link_status["detalhes"] = canonical_url
+
+                fetcher = ScraplingFetcher()
+                dados_scrapling = fetcher.raspar_pagina_pncp(canonical_url)
+                _log(f"Página raspada ({dados_scrapling.get('origem', 'live')}). Órgão detectado: {dados_scrapling.get('orgao') or 'Órgão Licitante'}")
+
+                # 4. CONSULTA API REST DO PNCP
+                time.sleep(0.3)
+                _log("Consultando API do PNCP para obter metadados oficiais e anexos...")
+                self.scan_link_status["percent"] = 55
+                self.scan_link_status["step"] = "API Oficial PNCP"
+                self.scan_link_status["mensagem"] = "Buscando lista de anexos, documentos e itens oficiais..."
+
+                pncp = PNCPClient()
+                arquivos_info = pncp.obter_arquivos_edital(cnpj, ano, seq)
+                if not arquivos_info and dados_scrapling.get("anexos_detectados"):
+                    arquivos_info = dados_scrapling["anexos_detectados"]
+
+                itens_info = pncp.obter_itens_edital(cnpj, ano, seq)
+                compra_info = pncp.obter_compra_detalhes(cnpj, ano, seq) or pncp.consultar_por_numero_controle(num_pncp) or {}
+
+                _log(f"PNCP retornou {len(arquivos_info)} anexo(s) e {len(itens_info)} item(ns).")
+
+                # 5. DOWNLOAD DOS ANEXOS
+                time.sleep(0.3)
+                _log("Baixando documentos oficiais (Edital, Termo de Referência, ETP)...")
+                self.scan_link_status["percent"] = 70
+                self.scan_link_status["step"] = "Download de Documentos"
+                self.scan_link_status["mensagem"] = "Baixando anexos prioritários para auditoria..."
+                self.scan_link_status["detalhes"] = f"{len(arquivos_info)} anexo(s) localizado(s)"
+
+                docs_baixados = fetcher.baixar_documentos_edital(num_pncp, arquivos_info)
+                _log(f"{len(docs_baixados)} documento(s) pronto(s) para processamento.")
+
+                # 6. LEITURA E ROTEAMENTO COM PDFROUTER & PAGEINDEX TREE
+                time.sleep(0.3)
+                _log("Processando páginas com PyMuPDF/PaddleOCR e construindo PageIndex Tree...")
+                self.scan_link_status["percent"] = 82
+                self.scan_link_status["step"] = "PageIndex Vectorless RAG"
+                self.scan_link_status["mensagem"] = "Extraindo textos, tabelas e estruturando sumário das páginas..."
+
+                router = PDFRouter()
+                tree = PageIndexTree()
+                texto_unificado = ""
+                arvore_docs = None
+
+                if docs_baixados:
+                    def _score_relevancia(f: Path) -> int:
+                        name = f.name.lower()
+                        if "edital" in name:
+                            return 100
+                        if "termo" in name or "referencia" in name or "tr" in name:
+                            return 80
+                        if "estudo" in name or "etp" in name:
+                            return 60
+                        if "risco" in name:
+                            return 40
+                        return 10
+
+                    docs_ordenados = sorted(docs_baixados, key=_score_relevancia, reverse=True)
+                    pdf_principal = docs_ordenados[0]
+                    paginas = router.processar_pdf(pdf_principal)
+                    texto_unificado = router.extrair_texto_unificado_com_citacoes(paginas)
+                    arvore_docs = tree.construir_arvore(paginas)
+                    _log(f"PageIndex construído para {pdf_principal.name} ({len(paginas)} páginas).")
+
+                # 7. AUDITORIA COM OS MODELOS DE IA DO PROJETO (REACT AUDITOR)
+                time.sleep(0.3)
+                _log("Executando modelos de IA do projeto: analisando Brechas, Leis, Requisitos e Pontos de Atenção...")
+                self.scan_link_status["percent"] = 92
+                self.scan_link_status["step"] = "Auditoria por IA"
+                self.scan_link_status["mensagem"] = "IA identificando cláusulas abusivas, leis aplicáveis e exigências cruciais..."
+
+                raw_meta = {
+                    "numeroControlePNCP": num_pncp,
+                    "orgaoEntidade": {
+                        "razaoSocial": (compra_info.get("orgaoEntidade", {}).get("razaoSocial") if isinstance(compra_info.get("orgaoEntidade"), dict) else "") or dados_scrapling.get("orgao") or "Órgão Licitante",
+                        "cnpj": cnpj
+                    },
+                    "modalidadeNome": compra_info.get("modalidadeNome") or dados_scrapling.get("modalidade") or "Pregão Eletrônico",
+                    "objetoCompra": compra_info.get("objetoCompra") or dados_scrapling.get("objeto") or "Contratação Pública",
+                    "valorTotalEstimado": compra_info.get("valorTotalEstimado") or dados_scrapling.get("valor_estimado") or 0.0,
+                    "dataEncerramentoProposta": compra_info.get("dataEncerramentoProposta") or dados_scrapling.get("data_encerramento") or "",
+                    "linkSistemaOrigem": compra_info.get("linkSistemaOrigem") or dados_scrapling.get("link_disputa") or "PNCP Oficial"
+                }
+
+                auditor = AuditorReActAgent()
+                ed_auditado = auditor.auditar_edital(
+                    raw_pncp_item=raw_meta,
+                    arvore_docs=arvore_docs,
+                    itens_pncp=itens_info,
+                    texto_completo=texto_unificado
+                )
+
+                ed_auditado.link_pncp = canonical_url
+                ed_auditado.link_disputa = raw_meta.get("linkSistemaOrigem")
+
+                _log(f"Auditoria IA concluída! Score: {ed_auditado.score_aderencia}/10. Brechas detectadas: {len(ed_auditado.armadilhas_e_riscos)}.")
+
+                # 8. PERSISTÊNCIA NO REDIS E NO SQLITE
+                time.sleep(0.3)
+                _log("Gravando resultados no Cache Redis e no banco de dados SQLite...")
+                self.scan_link_status["percent"] = 98
+                self.scan_link_status["step"] = "Persistência Redis & SQLite"
+                self.scan_link_status["mensagem"] = "Armazenando auditoria estruturada no Redis e SQLite..."
+
+                self.repo.salvar_edital(ed_auditado, org_id="org_default", user_name="Scan Link")
+                ed_salvo = self.repo.obter_edital(num_pncp) or ed_auditado.model_dump()
+                if isinstance(ed_salvo, dict):
+                    ed_salvo["leis_aplicaveis"] = ed_auditado.leis_aplicaveis
+                    ed_salvo["coisas_obrigatorias"] = ed_auditado.coisas_obrigatorias
+                    ed_salvo["pontos_atencao"] = ed_auditado.pontos_atencao
+                    ed_salvo["link_pncp"] = canonical_url
+                    ed_salvo["link_disputa"] = ed_auditado.link_disputa
+
+                redis_cache.salvar_auditoria_scan(num_pncp, ed_salvo)
+                redis_cache.salvar_auditoria_scan(canonical_url, ed_salvo)
+                _log("Resultados armazenados no Redis e SQLite com sucesso.")
+
+                # 9. FINALIZAÇÃO
+                self.scan_link_status["percent"] = 100
+                self.scan_link_status["step"] = "Auditoria Concluída"
+                self.scan_link_status["mensagem"] = f"Edital {num_pncp} auditado com sucesso!"
+                self.scan_link_status["detalhes"] = f"Score: {ed_auditado.score_aderencia}/10 • {len(ed_auditado.armadilhas_e_riscos)} Riscos/Brechas mapeados"
+                self.scan_link_status["edital"] = ed_salvo
+                _log("Scan por link finalizado com sucesso!")
+            except Exception as e:
+                logger.error(f"Erro no processamento do scan por link: {e}", exc_info=True)
+                _log(f"ERRO: {str(e)[:150]}")
+                self.scan_link_status["error"] = str(e)
+                self.scan_link_status["step"] = "Erro no Scan"
+                self.scan_link_status["mensagem"] = f"Falha ao processar link: {str(e)[:120]}"
+            finally:
+                self.scan_link_status["is_running"] = False
+
+        threading.Thread(target=_worker_scan, daemon=True).start()
+        return {
+            "status": "iniciado",
+            "mensagem": "Scan por link iniciado. Acompanhe o progresso em tempo real.",
+            "url": url_limpa
+        }
+
     def salvar_configuracoes_cliente(self, nova_config: Dict[str, Any]) -> Dict[str, Any]:
         """Salva as configurações de busca do cliente no arquivo JSON persistente."""
         try:
@@ -207,8 +462,37 @@ class DesktopAPI:
                     self.license_config.keywords = [k.strip().lower() for k in kws.split(",") if k.strip()]
                 elif isinstance(kws, list):
                     self.license_config.keywords = [str(k).strip().lower() for k in kws if str(k).strip()]
+            if "negative_keywords" in nova_config:
+                nkws = nova_config["negative_keywords"]
+                if isinstance(nkws, str):
+                    self.license_config.negative_keywords = [k.strip().lower() for k in nkws.split(",") if k.strip()]
+                elif isinstance(nkws, list):
+                    self.license_config.negative_keywords = [str(k).strip().lower() for k in nkws if str(k).strip()]
+            if "valor_minimo" in nova_config:
+                try:
+                    self.license_config.valor_minimo = float(nova_config["valor_minimo"]) if nova_config["valor_minimo"] is not None and str(nova_config["valor_minimo"]).strip() != "" else None
+                except (ValueError, TypeError):
+                    self.license_config.valor_minimo = None
+            if "valor_maximo" in nova_config:
+                try:
+                    self.license_config.valor_maximo = float(nova_config["valor_maximo"]) if nova_config["valor_maximo"] is not None and str(nova_config["valor_maximo"]).strip() != "" else None
+                except (ValueError, TypeError):
+                    self.license_config.valor_maximo = None
+            if "modalidades" in nova_config:
+                mods = nova_config["modalidades"]
+                if isinstance(mods, list):
+                    self.license_config.modalidades = [str(m).strip().upper() for m in mods if str(m).strip()]
+                elif isinstance(mods, str):
+                    self.license_config.modalidades = [m.strip().upper() for m in mods.split(",") if m.strip()]
+            if "municipio_filtro" in nova_config:
+                self.license_config.municipio_filtro = str(nova_config["municipio_filtro"]).strip() if nova_config["municipio_filtro"] else None
+            if "score_minimo" in nova_config:
+                try:
+                    self.license_config.score_minimo = int(nova_config["score_minimo"]) if nova_config["score_minimo"] is not None and str(nova_config["score_minimo"]).strip() != "" else None
+                except (ValueError, TypeError):
+                    self.license_config.score_minimo = None
             if "whatsapp_number" in nova_config:
-                self.license_config.whatsapp_number = nova_config["whatsapp_number"].strip()
+                self.license_config.whatsapp_number = nova_config["whatsapp_number"].strip() if nova_config["whatsapp_number"] else ""
 
             self._salvar_config_arquivo(self.license_config)
             logger.info("Configurações do cliente salvas com sucesso.")
@@ -351,10 +635,190 @@ class DesktopAPI:
     def buscar_licitacoes(self, uf: str = "MT", termo: str = "") -> Dict[str, Any]:
         """
         Chamado pelo JS: window.pywebview.api.buscar_licitacoes(uf, termo)
-        Executa varredura e auditoria via Tool MCP com persistência no SQLite.
+        Executa consulta prioritária e obrigatória ao Apify (Actor brasildados/editais-licitacoes-brasil)
+        garantindo dados 100% reais sem dados aleatórios ou simulados.
         """
-        logger.info(f"Ponte PyWebView: buscar_licitacoes(uf='{uf}', termo='{termo}')")
+        logger.info(f"Ponte PyWebView: buscar_licitacoes via Apify (uf='{uf}', termo='{termo}')")
+        try:
+            apify = ApifyClient()
+            if apify.is_configured():
+                itens_apify = apify.consultar_editais(termo=termo, uf=uf, tam_pagina=50)
+                if itens_apify:
+                    editais = []
+                    for item in itens_apify:
+                        orgao_info = item.get("orgaoEntidade", {})
+                        razao = orgao_info.get("razaoSocial") if isinstance(orgao_info, dict) else str(orgao_info)
+                        cnpj_org = orgao_info.get("cnpj") if isinstance(orgao_info, dict) else ""
+                        num_pncp = item.get("numeroControlePNCP", "")
+                        ano = item.get("anoCompra") or datetime.now().year
+                        seq = item.get("sequencialCompra") or 1
+                        cnpj_clean = "".join(filter(str.isdigit, str(cnpj_org)))
+                        url_oficial = f"https://pncp.gov.br/app/editais/{cnpj_clean}/{ano}/{seq}" if cnpj_clean else f"https://pncp.gov.br/app/editais?q={num_pncp}"
+
+                        editais.append({
+                            "numero_controle_pncp": num_pncp,
+                            "orgao": razao or "Órgão Público",
+                            "modalidade": (item.get("modalidadeNome") or "PREGÃO ELETRÔNICO").upper(),
+                            "objeto_resumo": item.get("objetoCompra") or item.get("informacaoComplementar") or "Contratação Pública",
+                            "valor_total_estimado": float(item.get("valorTotalEstimado") or 0.0),
+                            "score_aderencia": None,
+                            "data_disputa": item.get("dataAberturaProposta") or item.get("dataEncerramentoProposta") or "Aberta",
+                            "url_oficial": url_oficial,
+                            "uf": item.get("uf") or uf,
+                            "municipioNome": item.get("municipioNome") or "",
+                            "origem_consulta": "apify",
+                            "raw": item
+                        })
+                    logger.info(f"[Apify] {len(editais)} editais retornados com sucesso pelo Actor oficial.")
+                    return {
+                        "status": "sucesso",
+                        "origem": "apify",
+                        "total": len(editais),
+                        "editais": editais
+                    }
+        except Exception as e:
+            logger.error(f"Erro ao consultar via Apify: {e}")
+
+        # Se houver qualquer falha com o Apify, recorre ao MCP completo
         return self.mcp_buscar_e_auditar_licitacoes(uf=uf, termo_busca=termo, limite=5)
+
+    def auditar_edital(self, numero_controle_pncp: str) -> Dict[str, Any]:
+        """
+        Chamado pelo JS: window.pywebview.api.auditar_edital(numero_controle_pncp)
+        Aciona os Agentes de Varredura e Auditoria (Scrapling, PDFRouter, PageIndex Tree, ReAct Auditor)
+        para baixar anexos oficiais, extrair lotes/itens e mapear riscos jurídicos e habilitação.
+        """
+        logger.info(f"Ponte PyWebView: auditar_edital('{numero_controle_pncp}')")
+        try:
+            num_limpo = numero_controle_pncp.strip()
+
+            # 1. Se já estiver auditado no banco com exigências, retorna imediatamente
+            ed_salvo = self.repo.obter_edital(num_limpo)
+            if ed_salvo and ed_salvo.get("exigencias"):
+                return {
+                    "status": "sucesso",
+                    "origem": "cache_local",
+                    "edital": ed_salvo
+                }
+
+            # 2. Extrai dados do identificador PNCP
+            cnpj = num_limpo.split("-1-")[0] if "-1-" in num_limpo else ""
+            ano = 2026
+            seq = 1
+            m = re.search(r"(\d{14})-\d+-0*(\d+)/(\d{4})", num_limpo)
+            if m:
+                cnpj = m.group(1)
+                seq = int(m.group(2))
+                ano = int(m.group(3))
+
+            pncp = PNCPClient()
+            fetcher = ScraplingFetcher()
+            router = PDFRouter()
+            tree = PageIndexTree()
+            auditor = AuditorReActAgent()
+
+            # 3. Obter arquivos e itens do PNCP
+            arquivos_info = pncp.obter_arquivos_edital(cnpj, ano, seq)
+            itens_info = pncp.obter_itens_edital(cnpj, ano, seq)
+
+            # 4. Baixar arquivos via Scrapling
+            docs_baixados = fetcher.baixar_documentos_edital(num_limpo, arquivos_info)
+
+            # 5. Processar documento principal com PDFRouter e PageIndex
+            texto_unificado = ""
+            arvore_docs = None
+            if docs_baixados:
+                # Prioriza o documento oficial do Edital ou Termo de Referência
+                def _score_relevancia(f: Path) -> int:
+                    name = f.name.lower()
+                    if "edital" in name:
+                        return 100
+                    if "termo" in name or "referencia" in name or "tr" in name:
+                        return 80
+                    if "estudo" in name or "etp" in name:
+                        return 60
+                    if "risco" in name:
+                        return 40
+                    return 10
+
+                docs_ordenados = sorted(docs_baixados, key=_score_relevancia, reverse=True)
+                pdf_principal = docs_ordenados[0]
+                paginas = router.processar_pdf(pdf_principal)
+                texto_unificado = router.extrair_texto_unificado_com_citacoes(paginas)
+                arvore_docs = tree.construir_arvore(paginas)
+
+            # 6. Auditoria ReAct
+            raw_meta = ed_salvo or {
+                "numeroControlePNCP": num_limpo,
+                "orgaoEntidade": {"razaoSocial": "Órgão Público", "cnpj": cnpj},
+                "modalidadeNome": "Pregão Eletrônico",
+                "objetoCompra": "Contratação Pública",
+                "valorTotalEstimado": 0.0
+            }
+            ed_auditado = auditor.auditar_edital(
+                raw_pncp_item=raw_meta,
+                arvore_docs=arvore_docs,
+                itens_pncp=itens_info,
+                texto_completo=texto_unificado
+            )
+
+            # 7. Persistência
+            self.repo.salvar_edital(ed_auditado, org_id="org_default", user_name="Auditor")
+
+            return {
+                "status": "sucesso",
+                "origem": "scrapling_react",
+                "edital": self.repo.obter_edital(num_limpo)
+            }
+        except Exception as e:
+            logger.error(f"Erro ao auditar edital {numero_controle_pncp}: {e}")
+            return {"status": "erro", "mensagem": str(e)}
+
+    def listar_arquivos_edital(self, numero_controle_pncp: str) -> List[Dict[str, Any]]:
+        """
+        Chamado pelo JS: window.pywebview.api.listar_arquivos_edital(numero_controle_pncp)
+        Retorna a lista real de documentos baixados no disco para um edital específico.
+        """
+        logger.info(f"Ponte PyWebView: listar_arquivos_edital('{numero_controle_pncp}')")
+        res = []
+        try:
+            num_limpo = numero_controle_pncp.strip()
+            id_clean = num_limpo.replace("/", "_").replace("-", "_")
+            pastas_busca = [get_downloads_dir(), Path("./downloads").resolve()]
+
+            pastas_alvo = []
+            for raiz in pastas_busca:
+                if not raiz.exists():
+                    continue
+                for p in raiz.glob(f"*{id_clean}*"):
+                    if p.is_dir() and p not in pastas_alvo:
+                        pastas_alvo.append(p)
+                m = re.search(r"(\d{14})-\d+-0*(\d+)/(\d{4})", num_limpo)
+                if m:
+                    cnpj, seq, ano = m.group(1), int(m.group(2)), int(m.group(3))
+                    for p in raiz.glob(f"*{cnpj}*{seq}*{ano}*"):
+                        if p.is_dir() and p not in pastas_alvo:
+                            pastas_alvo.append(p)
+
+            for pasta in pastas_alvo:
+                for f in sorted(pasta.iterdir(), key=lambda x: x.name):
+                    if f.is_file() and not f.name.startswith("."):
+                        size_bytes = f.stat().st_size
+                        if size_bytes >= 1024 * 1024:
+                            tamanho_str = f"{size_bytes / (1024 * 1024):.2f} MB"
+                        else:
+                            tamanho_str = f"{size_bytes / 1024:.1f} KB"
+                        ext = f.suffix.replace(".", "").upper() or "ARQ"
+                        res.append({
+                            "nome": f.name,
+                            "caminho": str(f.resolve()),
+                            "extensao": ext,
+                            "tamanho": tamanho_str,
+                            "numero_pncp": num_limpo
+                        })
+        except Exception as e:
+            logger.error(f"Erro ao listar arquivos do edital {numero_controle_pncp}: {e}")
+        return res
 
     def obter_metricas(self) -> Dict[str, Any]:
         """
@@ -374,34 +838,48 @@ class DesktopAPI:
             "raw": m
         }
 
-    def abrir_pdf(self, filename: str) -> Dict[str, Any]:
+    def abrir_pdf(self, filename: str, numero_controle_pncp: str = "") -> Dict[str, Any]:
         """
-        Chamado pelo JS: window.pywebview.api.abrir_pdf(filename)
-        Localiza o PDF no disco e abre no visualizador nativo do sistema operacional.
+        Chamado pelo JS: window.pywebview.api.abrir_pdf(filename, numero_controle_pncp)
+        Localiza o PDF no disco e abre no visualizador nativo do Windows.
         """
-        logger.info(f"Ponte PyWebView: abrir_pdf('{filename}')")
+        logger.info(f"Ponte PyWebView: abrir_pdf('{filename}', pncp='{numero_controle_pncp}')")
         try:
             p = Path(filename)
-            if not p.is_absolute() or not p.exists():
-                pasta_downloads = get_downloads_dir()
-                candidato = pasta_downloads / filename
-                if candidato.exists():
-                    p = candidato
-                else:
-                    # Busca por correspondência parcial de nome no diretório seguro de downloads
-                    arquivos_encontrados = list(pasta_downloads.glob(f"*{filename}*"))
-                    if arquivos_encontrados:
-                        p = arquivos_encontrados[0]
-                    else:
-                        # Se não encontrar pelo nome exato, tenta abrir o primeiro PDF disponível
-                        todos_pdfs = list(pasta_downloads.glob("*.pdf"))
-                        if todos_pdfs:
-                            p = todos_pdfs[0]
-                        else:
-                            return {"status": "erro", "mensagem": f"Nenhum arquivo PDF encontrado em {pasta_downloads}"}
-            return self.abrir_arquivo_pdf(str(p))
+            if p.is_absolute() and p.exists():
+                return self.abrir_arquivo_pdf(str(p))
+
+            pastas_busca = [get_downloads_dir(), Path("./downloads").resolve()]
+            clean_name = Path(filename).name
+
+            # 1. Se informou o pncp_id, pesquisa prioritariamente na pasta do edital
+            if numero_controle_pncp:
+                id_clean = numero_controle_pncp.replace("/", "_").replace("-", "_")
+                for raiz in pastas_busca:
+                    for sub in raiz.glob(f"*{id_clean}*"):
+                        if sub.is_dir():
+                            for f in sub.iterdir():
+                                if f.is_file() and (clean_name.lower() in f.name.lower() or f.name.lower() in clean_name.lower()):
+                                    return self.abrir_arquivo_pdf(str(f))
+
+            # 2. Busca recursiva (rglob) pelo nome exato ou parcial
+            for raiz in pastas_busca:
+                if not raiz.exists():
+                    continue
+                for match in raiz.rglob(f"*{clean_name}*"):
+                    if match.is_file():
+                        return self.abrir_arquivo_pdf(str(match))
+                
+                # Fallback: primeira palavra-chave relevante do nome
+                palavras = [w for w in clean_name.split() if len(w) > 3 and not w.isdigit()]
+                if palavras:
+                    for f in raiz.rglob("*"):
+                        if f.is_file() and any(w.lower() in f.name.lower() for w in palavras):
+                            return self.abrir_arquivo_pdf(str(f))
+
+            return {"status": "erro", "mensagem": f"Arquivo '{clean_name}' não encontrado no disco local."}
         except Exception as e:
-            logger.error(f"Erro ao abrir PDF: {e}")
+            logger.error(f"Erro ao abrir arquivo {filename}: {e}")
             return {"status": "erro", "mensagem": str(e)}
 
     def perguntar_juridico(self, pncp_id: str, pergunta: str) -> str:
@@ -433,7 +911,7 @@ class DesktopAPI:
     def salvar_configuracoes(self, config_json: Any) -> Dict[str, Any]:
         """
         Chamado pelo JS: window.pywebview.api.salvar_configuracoes(config_json)
-        Atualiza as preferências do cliente (UF, palavras-chave, WhatsApp).
+        Atualiza as preferências do cliente (UF, palavras-chave, palavras negativas, valores, modalidades, WhatsApp).
         """
         logger.info(f"Ponte PyWebView: salvar_configuracoes({config_json})")
         try:
@@ -455,10 +933,26 @@ class DesktopAPI:
             elif "whatsapp_number" in data and data["whatsapp_number"]:
                 cfg_dict["whatsapp_number"] = data["whatsapp_number"]
 
-            if "keywords" in data and data["keywords"]:
+            if "keywords" in data and data["keywords"] is not None:
                 cfg_dict["keywords"] = data["keywords"]
-            elif "palavras_chave" in data and data["palavras_chave"]:
+            elif "palavras_chave" in data and data["palavras_chave"] is not None:
                 cfg_dict["keywords"] = data["palavras_chave"]
+
+            if "negative_keywords" in data and data["negative_keywords"] is not None:
+                cfg_dict["negative_keywords"] = data["negative_keywords"]
+            elif "palavras_negativas" in data and data["palavras_negativas"] is not None:
+                cfg_dict["negative_keywords"] = data["palavras_negativas"]
+
+            if "valor_minimo" in data:
+                cfg_dict["valor_minimo"] = data["valor_minimo"]
+            if "valor_maximo" in data:
+                cfg_dict["valor_maximo"] = data["valor_maximo"]
+            if "modalidades" in data and data["modalidades"] is not None:
+                cfg_dict["modalidades"] = data["modalidades"]
+            if "municipio_filtro" in data:
+                cfg_dict["municipio_filtro"] = data["municipio_filtro"]
+            if "score_minimo" in data:
+                cfg_dict["score_minimo"] = data["score_minimo"]
 
             if "client_name" in data and data["client_name"]:
                 cfg_dict["client_name"] = data["client_name"]
@@ -467,4 +961,24 @@ class DesktopAPI:
         except Exception as e:
             logger.error(f"Erro em salvar_configuracoes: {e}")
             return {"status": "erro", "mensagem": str(e)}
+
+    def obter_configuracoes(self) -> Dict[str, Any]:
+        """
+        Chamado pelo JS: window.pywebview.api.obter_configuracoes()
+        Retorna o conjunto completo de configurações e filtros ativos para pré-popular a UI.
+        """
+        logger.info("Ponte PyWebView: obter_configuracoes()")
+        return {
+            "uf": self.license_config.uf_target,
+            "keywords": self.license_config.keywords,
+            "negative_keywords": getattr(self.license_config, "negative_keywords", []),
+            "valor_minimo": getattr(self.license_config, "valor_minimo", None),
+            "valor_maximo": getattr(self.license_config, "valor_maximo", None),
+            "modalidades": getattr(self.license_config, "modalidades", ["PREGÃO ELETRÔNICO", "DISPENSA ELETRÔNICA", "CONCORRÊNCIA"]),
+            "municipio_filtro": getattr(self.license_config, "municipio_filtro", "") or "",
+            "score_minimo": getattr(self.license_config, "score_minimo", None),
+            "whatsapp": self.license_config.whatsapp_number or "",
+            "client_name": self.license_config.client_name or ""
+        }
+
 

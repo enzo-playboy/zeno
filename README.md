@@ -40,22 +40,22 @@
                       └──────────────────────┬───────────────────────┘
                                              │
                       ┌──────────────────────▼───────────────────────┐
-                      │    Servidor MCP Central (FastMCP / In-Process│
+                      │    Servidor MCP Central (FastMCP / In-Process)│
                       │         (src/mcp_server/zeno_mcp.py)         │
                       └──────┬───────────────┬───────────────┬───────┘
                              │               │               │
             ┌────────────────▼┐     ┌────────▼───────┐     ┌─▼──────────────┐
-            │   Collectors    │     │   Parsers      │     │  Intelligence  │
+            │ Consultas: Apify│     │   Parsers      │     │  Intelligence  │
             ├─────────────────┤     ├────────────────┤     ├────────────────┤
-            │ • PNCP REST API │     │ • PyMuPDF      │     │ • PageIndex RAG│
-            │ • Scrapling     │     │ • PaddleOCR    │     │ • ReAct Auditor│
+            │ • Apify Client  │     │ • PyMuPDF      │     │ • PageIndex RAG│
+            │ • Actor PNCP    │     │ • PaddleOCR    │     │ • ReAct Auditor│
             └────────┬────────┘     └────────┬───────┘     └─┬──────────────┘
                      │                       │               │
                      └───────────────────────┼───────────────┘
                                              │
                       ┌──────────────────────▼───────────────────────┐
-                      │     Repositório SQLite Persistente           │
-                      │   (%LOCALAPPDATA%\ZenoRadar\zeno_radar.db)   │
+                      │    Dados: Nuvem Supabase (PostgreSQL)        │
+                      │  + SQLite Local Mirror (%LOCALAPPDATA%)      │
                       └──────────────────────────────────────────────┘
 ```
 

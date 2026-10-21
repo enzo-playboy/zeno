@@ -17,6 +17,8 @@ from src.database.models import (
 )
 from src.config import settings
 
+from src.database.supabase_client import SupabaseClient
+
 logger = logging.getLogger("ZenoRepository")
 
 
@@ -32,6 +34,7 @@ class Repository:
             self.db_path = db_path
             
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+        self.supabase = SupabaseClient()
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
@@ -480,10 +483,61 @@ class Repository:
                     now_str
                 ))
                 conn.commit()
-                return cursor.lastrowid
+                proj_id = cursor.lastrowid
+
+        # Se Supabase estiver configurado, persiste primariamente na nuvem
+        if self.supabase.is_configured:
+            try:
+                self.supabase.upsert_projeto({
+                    "pncp_id": projeto.pncp_id,
+                    "org_id": projeto.org_id,
+                    "audit_json": projeto.audit_json or {},
+                    "workflow_status": projeto.workflow_status or "TRIAGEM",
+                    "assigned_to_user": projeto.assigned_to_user,
+                    "internal_notes": projeto.internal_notes,
+                    "checklist_docs": projeto.checklist_docs or {},
+                    "updated_by": projeto.updated_by or "Sistema"
+                })
+            except Exception as e:
+                logger.warning(f"[Supabase Sync] Falha ao sincronizar projeto com nuvem: {e}")
+
+        return proj_id
 
     def obter_projeto(self, pncp_id: str, org_id: str) -> Optional[BidProject]:
-        """Recupera um projeto de licitação da organização."""
+        """Recupera um projeto de licitação da organização (Supabase com cache local)."""
+        # Se Supabase configurado, obtém o dado oficial da nuvem
+        if self.supabase.is_configured:
+            cloud_proj = self.supabase.obter_projeto(pncp_id=pncp_id, org_id=org_id)
+            if cloud_proj:
+                audit_data = cloud_proj.get("audit_json") or {}
+                if isinstance(audit_data, str):
+                    try:
+                        audit_data = json.loads(audit_data)
+                    except Exception:
+                        audit_data = {}
+
+                checklist = cloud_proj.get("checklist_docs") or {}
+                if isinstance(checklist, str):
+                    try:
+                        checklist = json.loads(checklist)
+                    except Exception:
+                        checklist = {}
+
+                return BidProject(
+                    id=cloud_proj.get("id"),
+                    pncp_id=cloud_proj["pncp_id"],
+                    org_id=cloud_proj["org_id"],
+                    audit_json=audit_data,
+                    workflow_status=cloud_proj.get("workflow_status") or "TRIAGEM",
+                    assigned_to_user=cloud_proj.get("assigned_to_user"),
+                    internal_notes=cloud_proj.get("internal_notes"),
+                    checklist_docs=checklist,
+                    updated_by=cloud_proj.get("updated_by"),
+                    updated_at=cloud_proj.get("updated_at"),
+                    created_at=cloud_proj.get("created_at")
+                )
+
+        # Fallback para banco local
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM bid_projects WHERE pncp_id = ? AND org_id = ?", (pncp_id, org_id))
@@ -511,7 +565,41 @@ class Repository:
         assigned_to_user: Optional[str] = None,
         limit: int = 100
     ) -> List[BidProject]:
-        """Lista editais em andamento na empresa com filtros colaborativos."""
+        """Lista editais em andamento na empresa (Nuvem Supabase como fonte primária)."""
+        if self.supabase.is_configured:
+            cloud_list = self.supabase.listar_projetos(org_id=org_id, workflow_status=workflow_status)
+            if cloud_list is not None:
+                projs = []
+                for cp in cloud_list:
+                    if assigned_to_user and cp.get("assigned_to_user") != assigned_to_user:
+                        continue
+                    audit_data = cp.get("audit_json") or {}
+                    if isinstance(audit_data, str):
+                        try:
+                            audit_data = json.loads(audit_data)
+                        except Exception:
+                            audit_data = {}
+                    chk = cp.get("checklist_docs") or {}
+                    if isinstance(chk, str):
+                        try:
+                            chk = json.loads(chk)
+                        except Exception:
+                            chk = {}
+                    projs.append(BidProject(
+                        id=cp.get("id"),
+                        pncp_id=cp["pncp_id"],
+                        org_id=cp["org_id"],
+                        audit_json=audit_data,
+                        workflow_status=cp.get("workflow_status") or "TRIAGEM",
+                        assigned_to_user=cp.get("assigned_to_user"),
+                        internal_notes=cp.get("internal_notes"),
+                        checklist_docs=chk,
+                        updated_by=cp.get("updated_by"),
+                        updated_at=cp.get("updated_at"),
+                        created_at=cp.get("created_at")
+                    ))
+                return projs[:limit]
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
             query = "SELECT * FROM bid_projects WHERE org_id = ?"
@@ -826,12 +914,28 @@ class Repository:
             
             # Também verifica se já existe na tabela de projetos colaborativos
             cursor.execute("SELECT id FROM bid_projects WHERE pncp_id = ? AND audit_json IS NOT NULL AND audit_json != '{}'", (numero_controle_pncp,))
-            return cursor.fetchone() is not None
+            if cursor.fetchone() is not None:
+                return True
+
+        # Se Supabase estiver configurado, checa também na nuvem
+        if self.supabase.is_configured:
+            cloud_edital = self.supabase.obter_edital(numero_controle_pncp)
+            if cloud_edital and cloud_edital.get("status_processamento") == "CONCLUIDO":
+                return True
+
+        return False
 
     def salvar_edital(self, edital: EditalAuditado, org_id: str = "org_default", user_name: str = "Sistema") -> int:
         hash_id = self.gerar_hash_edital(edital.numero_controle_pncp)
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            raw_dict = dict(edital.raw_pncp_data or {})
+            raw_dict["leis_aplicaveis"] = edital.leis_aplicaveis
+            raw_dict["coisas_obrigatorias"] = edital.coisas_obrigatorias
+            raw_dict["pontos_atencao"] = edital.pontos_atencao
+            raw_dict["link_pncp"] = edital.link_pncp
+            raw_dict["link_disputa"] = edital.link_disputa
+
             cursor.execute("""
             INSERT INTO editais (
                 numero_controle_pncp,
@@ -857,6 +961,7 @@ class Repository:
                 itens_json = excluded.itens_json,
                 exigencias_json = excluded.exigencias_json,
                 armadilhas_json = excluded.armadilhas_json,
+                raw_pncp_json = excluded.raw_pncp_json,
                 status_processamento = excluded.status_processamento,
                 updated_at = CURRENT_TIMESTAMP
             """, (
@@ -873,11 +978,34 @@ class Repository:
                 json.dumps([i.model_dump() for i in edital.itens_interesse_cliente], ensure_ascii=False),
                 json.dumps(edital.exigencias_habilitacao_criticas, ensure_ascii=False),
                 json.dumps(edital.armadilhas_e_riscos, ensure_ascii=False),
-                json.dumps(edital.raw_pncp_data or {}, ensure_ascii=False),
+                json.dumps(raw_dict, ensure_ascii=False),
                 edital.status_processamento
             ))
             conn.commit()
             edital_id = cursor.lastrowid
+
+        # Se Supabase estiver ativo, salva o edital diretamente na nuvem
+        if self.supabase.is_configured:
+            try:
+                self.supabase.upsert_edital({
+                    "numero_controle_pncp": edital.numero_controle_pncp,
+                    "hash_identificador": hash_id,
+                    "orgao": edital.orgao,
+                    "modalidade": edital.modalidade,
+                    "data_disputa": edital.data_disputa,
+                    "portal_disputa": edital.portal_disputa,
+                    "objeto_resumo": edital.objeto_resumo,
+                    "valor_total_estimado": edital.valor_total_estimado,
+                    "score_aderencia": edital.score_aderencia,
+                    "recomendacao_executiva": edital.recomendacao_executiva,
+                    "itens_json": [i.model_dump() for i in edital.itens_interesse_cliente],
+                    "exigencias_json": edital.exigencias_habilitacao_criticas,
+                    "armadilhas_json": edital.armadilhas_e_riscos,
+                    "raw_pncp_json": raw_dict,
+                    "status_processamento": edital.status_processamento
+                })
+            except Exception as e:
+                logger.warning(f"[Supabase Sync] Falha ao persistir edital na nuvem: {e}")
 
         # Sincroniza automaticamente com a tabela colaborativa bid_projects
         proj = BidProject(
@@ -990,6 +1118,13 @@ class Repository:
                 except Exception:
                     return None
 
+            raw_pncp = {}
+            if "raw_pncp_json" in r.keys() and r["raw_pncp_json"]:
+                try:
+                    raw_pncp = json.loads(r["raw_pncp_json"])
+                except Exception:
+                    raw_pncp = {}
+
             return {
                 "numero_controle_pncp": r["numero_controle_pncp"],
                 "orgao": r["orgao"],
@@ -1003,6 +1138,11 @@ class Repository:
                 "itens": json.loads(r["itens_json"]) if r["itens_json"] else [],
                 "exigencias": json.loads(r["exigencias_json"]) if r["exigencias_json"] else [],
                 "armadilhas": json.loads(r["armadilhas_json"]) if r["armadilhas_json"] else [],
+                "leis_aplicaveis": raw_pncp.get("leis_aplicaveis") or [],
+                "coisas_obrigatorias": raw_pncp.get("coisas_obrigatorias") or [],
+                "pontos_atencao": raw_pncp.get("pontos_atencao") or [],
+                "link_pncp": raw_pncp.get("link_pncp") or "",
+                "link_disputa": raw_pncp.get("link_disputa") or r["portal_disputa"],
                 "status_processamento": r["status_processamento"],
                 "created_at": r["created_at"]
             }

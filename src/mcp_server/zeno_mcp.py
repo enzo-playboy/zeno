@@ -59,6 +59,7 @@ from src.database.models import (
     ProcessingLock
 )
 from src.collectors.pncp_api import PNCPClient
+from src.collectors.apify_client import ApifyClient
 from src.collectors.scrapling_fetcher import ScraplingFetcher
 from src.parsers.pdf_router import PDFRouter
 from src.intelligence.pageindex_tree import PageIndexTree, DocumentNode
@@ -151,6 +152,7 @@ def buscar_e_auditar_licitacoes(
     logger.info(f"[MCP TOOL] buscar_e_auditar_licitacoes(uf={uf}, termo_busca='{termo_busca}', limite={limite}, org_id={org_id}, user={user_name})")
     
     repo = Repository()
+    apify = ApifyClient()
     pncp = PNCPClient()
     fetcher = ScraplingFetcher()
     pdf_router = PDFRouter()
@@ -164,45 +166,78 @@ def buscar_e_auditar_licitacoes(
     # Mapeamento e expansão de nichos para maximizar captura no PNCP
     nicho_map = {
         "informática": ["informática", "informatica", "computador", "notebook", "ti", "tecnologia", "software", "dados", "rede"],
+        "software": ["software", "sistema", "ti", "tecnologia", "informática", "computador", "rede", "dados"],
         "ar condicionado": ["ar condicionado", "ar-condicionado", "climatizacao", "climatização", "split", "refrigeração", "ventilador", "ar"],
-        "material hospitalar": ["material hospitalar", "hospitalar", "medicamento", "medicamentos", "saúde", "saude", "farmacêutico", "enfermagem", "médico", "medico", "hospital"]
+        "material hospitalar": ["material hospitalar", "hospitalar", "medicamento", "medicamentos", "saúde", "saude", "farmacêutico", "enfermagem", "médico", "medico", "hospital"],
+        "armas": ["arma", "armas", "armamento", "munição", "municao", "pistola", "espingarda", "colete", "segurança", "vigilância", "vigilancia", "tiro"],
+        "segurança": ["segurança", "seguranca", "vigilância", "vigilancia", "monitoramento", "alarme", "cftv", "portaria", "arma"],
+        "construção civil": ["construção", "construcao", "obra", "obras", "engenharia", "reforma", "pavimentação", "edificação"],
+        "engenharia": ["engenharia", "obra", "obras", "reforma", "construção", "construcao", "pavimentação", "asfalto"]
     }
 
     tb = termo_busca.strip().lower() if termo_busca else ""
+    kws = []
     if tb:
-        kws = nicho_map.get(tb, [tb])
+        # Suporte a múltiplas tags separadas por vírgula
+        termos = [t.strip() for t in tb.split(",") if t.strip()]
+        for t in termos:
+            expandidos = nicho_map.get(t, [t])
+            for exp in expandidos:
+                if exp not in kws:
+                    kws.append(exp)
     else:
         kws = settings.target_keywords_list
 
-    candidatos = pncp.buscar_contratacoes_abertas(
-        uf=uf.upper(),
-        dias_retroativos=settings.PNCP_LOOKBACK_DAYS,
-        tamanho_pagina=max(10, limite * 3),
-        palavras_chave=kws
-    )
+    candidatos = []
+    
+    # 1. Consulta prioritária via Apify por termo
+    if tb:
+        termos_busca = [t.strip() for t in tb.split(",") if t.strip()]
+        for t in termos_busca:
+            if getattr(settings, "CONSULTA_PROVIDER", "apify") == "apify" or apify.is_configured():
+                search_items = apify.consultar_editais(termo=t, uf=uf.upper(), tam_pagina=50)
+            else:
+                search_items = pncp.buscar_editais_search(termo=t, uf=uf.upper(), tam_pagina=50)
+            
+            for s in search_items:
+                candidatos.append({
+                    "numeroControlePNCP": s.get("numeroControlePNCP") or s.get("numero_controle_pncp"),
+                    "objetoCompra": s.get("objetoCompra") or s.get("description") or s.get("title"),
+                    "informacaoComplementar": s.get("informacaoComplementar") or s.get("informacao_complementar") or "",
+                    "valorTotalEstimado": s.get("valorTotalEstimado") or s.get("valor_total_estimado") or 0.0,
+                    "modalidadeNome": s.get("modalidadeNome") or s.get("modalidade_licitacao_nome") or "PREGÃO ELETRÔNICO",
+                    "orgaoEntidade": s.get("orgaoEntidade") if isinstance(s.get("orgaoEntidade"), dict) else {
+                        "razaoSocial": s.get("orgao_nome") or "Órgão Público",
+                        "cnpj": s.get("orgao_cnpj") or ""
+                    },
+                    "anoCompra": int(s.get("anoCompra") or s.get("ano") or datetime.now().year),
+                    "sequencialCompra": int(s.get("sequencialCompra") or s.get("numero_sequencial") or 1),
+                    "dataAberturaProposta": s.get("dataAberturaProposta") or s.get("data_inicio_vigencia") or "",
+                    "dataEncerramentoProposta": s.get("dataEncerramentoProposta") or s.get("data_fim_vigencia") or "",
+                    "uf": s.get("uf") or uf,
+                    "municipioNome": s.get("municipioNome") or s.get("municipio_nome") or ""
+                })
 
-    if (not candidatos or len(candidatos) < limite) and tb:
-        # Se filtro restrito trouxe poucos, busca janela de 30 dias para garantir dados reais
-        candidatos_gerais = pncp.buscar_contratacoes_abertas(
-            uf=uf.upper(),
-            dias_retroativos=max(settings.PNCP_LOOKBACK_DAYS, 30),
-            tamanho_pagina=30
-        )
-        palavras_alvo = nicho_map.get(tb, [tb])
-        candidatos_adicionais = [
-            c for c in candidatos_gerais 
-            if any(p in (c.get("objetoCompra") or "").lower() or p in (c.get("informacaoComplementar") or "").lower() for p in palavras_alvo)
-        ]
-        # Mescla preservando unicidade
+    # 2. Se não houver termos ou a busca por termo trouxe poucos, complementa com contratações abertas da UF
+    if not candidatos or len(candidatos) < limite:
+        if getattr(settings, "CONSULTA_PROVIDER", "apify") == "apify" or apify.is_configured():
+            candidatos_gerais = apify.consultar_editais(
+                uf=uf.upper(),
+                dias_retroativos=settings.PNCP_LOOKBACK_DAYS,
+                tam_pagina=50
+            )
+        else:
+            candidatos_gerais = pncp.buscar_contratacoes_abertas(
+                uf=uf.upper(),
+                dias_retroativos=settings.PNCP_LOOKBACK_DAYS,
+                tamanho_pagina=50,
+                palavras_chave=kws if tb else None
+            )
         vistos = {c.get("numeroControlePNCP") for c in candidatos}
-        for ca in candidatos_adicionais:
-            if ca.get("numeroControlePNCP") not in vistos:
-                candidatos.append(ca)
-                vistos.add(ca.get("numeroControlePNCP"))
-
-        # Fallback final se o nicho for extremamente raro no período: usa contratações abertas da UF
-        if not candidatos:
-            candidatos = candidatos_gerais[:limite]
+        for cg in candidatos_gerais:
+            if cg.get("numeroControlePNCP") not in vistos:
+                candidatos.append(cg)
+                vistos.add(cg.get("numeroControlePNCP"))
 
     editais_auditados: List[Dict[str, Any]] = []
     processados_count = 0
@@ -271,7 +306,11 @@ def buscar_e_auditar_licitacoes(
             continue
 
         try:
-            cnpj = ed_raw.get("orgaoEntidade", {}).get("cnpj", "")
+            cnpj_raw = ed_raw.get("orgaoEntidade", {}).get("cnpj", "") if isinstance(ed_raw.get("orgaoEntidade"), dict) else ed_raw.get("cnpj", "")
+            cnpj = "".join(filter(str.isdigit, str(cnpj_raw)))
+            if not cnpj and num_pncp and "-1-" in num_pncp:
+                cnpj = "".join(filter(str.isdigit, num_pncp.split("-1-")[0]))
+
             ano = int(ed_raw.get("anoCompra") or datetime.now().year)
             seq = int(ed_raw.get("sequencialCompra") or 1)
 
@@ -308,6 +347,10 @@ def buscar_e_auditar_licitacoes(
             # Disparo opcional WhatsApp
             notifier.enviar_alerta(auditado)
 
+            # Gera URL oficial canônica do portal PNCP (/cnpj/ano/seq)
+            cnpj_limpo = "".join(filter(str.isdigit, str(cnpj)))
+            url_oficial = f"https://pncp.gov.br/app/editais/{cnpj_limpo}/{ano}/{seq}" if cnpj_limpo else f"https://pncp.gov.br/app/editais?q={num_pncp}"
+
             editais_auditados.append({
                 "numero_controle_pncp": auditado.numero_controle_pncp,
                 "orgao": auditado.orgao,
@@ -319,7 +362,8 @@ def buscar_e_auditar_licitacoes(
                 "exigencias": auditado.exigencias_habilitacao_criticas,
                 "armadilhas": auditado.armadilhas_e_riscos,
                 "status": "NOVO_AUDITADO",
-                "caminho_pdf": pdf_path_str
+                "caminho_pdf": pdf_path_str,
+                "url_oficial": url_oficial
             })
 
         except Exception as e:
@@ -368,6 +412,10 @@ def listar_editais_salvos(filtro_texto: str = "", score_minimo: float = 0.0) -> 
         num_pncp = ed.get("numero_controle_pncp", "")
         pdf_path = _localizar_pdf_edital(num_pncp)
 
+        import re
+        m = re.match(r'(\d{14})-\d+-0*(\d+)/(\d{4})', num_pncp)
+        url_oficial = f"https://pncp.gov.br/app/editais/{m.group(1)}/{m.group(3)}/{int(m.group(2))}" if m else f"https://pncp.gov.br/app/editais?q={num_pncp}"
+
         resultado.append({
             "numero_controle_pncp": num_pncp,
             "orgao": ed.get("orgao", "Órgão"),
@@ -378,6 +426,7 @@ def listar_editais_salvos(filtro_texto: str = "", score_minimo: float = 0.0) -> 
             "score_aderencia": score,
             "recomendacao_executiva": ed.get("recomendacao_executiva", ""),
             "caminho_pdf": str(pdf_path.resolve()) if pdf_path else None,
+            "url_oficial": url_oficial,
             "exigencias_habilitacao": ed.get("exigencias", []),
             "armadilhas_e_riscos": ed.get("armadilhas", []),
             "itens": ed.get("itens", []),

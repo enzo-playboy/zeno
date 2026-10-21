@@ -38,6 +38,150 @@ class PDFRouter:
             logger.error(f"Arquivo PDF não encontrado: {pdf_path}")
             return paginas
 
+        # 1. Tratamento transparente de arquivos RTF (muito comuns em prefeituras no PNCP)
+        try:
+            with open(pdf_path, "rb") as fp:
+                magic = fp.read(16)
+        except Exception:
+            magic = b""
+
+        if magic.startswith(b"{\\rtf") or pdf_path.suffix.lower() == ".rtf":
+            logger.info(f"Processando documento RTF {pdf_path.name}...")
+            try:
+                with open(pdf_path, "r", encoding="latin1", errors="ignore") as f:
+                    raw_rtf = f.read()
+
+                # Extração rápida baseada em pilha de controle RTF (0.5s sem backtracking)
+                IGNORED_DESTINATIONS = {
+                    'fonttbl', 'colortbl', 'stylesheet', 'info', 'pict', 'shp', 'themedata',
+                    'colorschememapping', 'latentstyles', 'datastore', 'xmlopen', 'generator',
+                    'xmlnsprefix', 'panose', 'operator', 'creatim', 'revtim'
+                }
+                out = []
+                group_stack = []
+                i = 0
+                n = len(raw_rtf)
+
+                while i < n:
+                    c = raw_rtf[i]
+                    if c == '{':
+                        i += 1
+                        is_ignoring = group_stack[-1] if group_stack else False
+                        if not is_ignoring and i < n and raw_rtf[i] == '\\':
+                            j = i + 1
+                            if j < n and raw_rtf[j] == '*':
+                                j += 1
+                            if j < n and raw_rtf[j] == '\\':
+                                j += 1
+                            cmd_start = j
+                            while j < n and raw_rtf[j].isalpha():
+                                j += 1
+                            cmd = raw_rtf[cmd_start:j].lower()
+                            if cmd in IGNORED_DESTINATIONS:
+                                group_stack.append(True)
+                                continue
+                        group_stack.append(is_ignoring)
+                    elif c == '}':
+                        if group_stack:
+                            group_stack.pop()
+                        i += 1
+                    elif c == '\\':
+                        i += 1
+                        if i >= n:
+                            break
+                        ch2 = raw_rtf[i]
+                        if ch2 in ('\\', '{', '}'):
+                            if not (group_stack and group_stack[-1]):
+                                out.append(ch2)
+                            i += 1
+                        elif ch2 == "'":
+                            hex_str = raw_rtf[i+1:i+3]
+                            i += 3
+                            if not (group_stack and group_stack[-1]):
+                                try:
+                                    b = bytes([int(hex_str, 16)])
+                                    out.append(b.decode('cp1252', errors='replace'))
+                                except Exception:
+                                    pass
+                        elif ch2.isalpha() or ch2 == '*':
+                            cmd_start = i
+                            while i < n and raw_rtf[i].isalpha():
+                                i += 1
+                            cmd = raw_rtf[cmd_start:i].lower()
+                            while i < n and (raw_rtf[i].isdigit() or raw_rtf[i] == '-'):
+                                i += 1
+                            if i < n and raw_rtf[i] == ' ':
+                                i += 1
+                            if not (group_stack and group_stack[-1]):
+                                if cmd in ('par', 'line'):
+                                    out.append('\n')
+                                elif cmd == 'tab':
+                                    out.append('\t')
+                        else:
+                            i += 1
+                    else:
+                        if not (group_stack and group_stack[-1]):
+                            if c not in ('\r', '\n'):
+                                out.append(c)
+                        i += 1
+
+                import re
+                clean = ''.join(out)
+                clean = re.sub(r'[ \t]+', ' ', clean)
+                clean = re.sub(r'\n{3,}', '\n\n', clean).strip()
+
+                # 2. Localiza onde começa o texto útil do edital
+                markers = ["EDITAL", "PREGÃO", "MUNICÍPIO", "MUNICIPIO", "PREFEITURA", "CHAMAMENTO", "CREDENCIAMENTO", "TERMO DE REFERÊNCIA", "TERMO DE REFERENCIA", "AVISO"]
+                first_pos = len(clean)
+                for marker in markers:
+                    p = clean.find(marker)
+                    if p != -1 and p < first_pos:
+                        first_pos = p
+                if first_pos < len(clean):
+                    clean = clean[first_pos:]
+
+                # Segmenta em blocos de ~2500 caracteres como páginas virtuais
+                chunk_size = 2500
+                for i in range(0, max(len(clean), 1), chunk_size):
+                    chunk = clean[i:i+chunk_size]
+                    if chunk.strip():
+                        paginas.append(PDFPageContent(
+                            page_number=(i // chunk_size) + 1,
+                            text=chunk.strip(),
+                            is_scanned=False,
+                            tables_md=""
+                        ))
+                return paginas
+            except Exception as ex_rtf:
+                logger.error(f"Erro ao processar RTF {pdf_path.name}: {ex_rtf}")
+
+        # 2. Tratamento transparente de arquivos DOCX
+        if (magic.startswith(b"PK\x03\x04") and pdf_path.suffix.lower() == ".docx") or pdf_path.suffix.lower() == ".docx":
+            logger.info(f"Processando documento DOCX {pdf_path.name}...")
+            try:
+                import zipfile
+                import xml.etree.ElementTree as ET
+                with zipfile.ZipFile(pdf_path) as docx_zip:
+                    if "word/document.xml" in docx_zip.namelist():
+                        xml_content = docx_zip.read("word/document.xml")
+                        tree = ET.fromstring(xml_content)
+                        texts = [node.text for node in tree.iter() if node.tag.endswith("t") and node.text]
+                        full_docx = " ".join(texts)
+                        chunk_size = 2500
+                        for i in range(0, max(len(full_docx), 1), chunk_size):
+                            chunk = full_docx[i:i+chunk_size]
+                            if chunk.strip():
+                                paginas.append(PDFPageContent(
+                                    page_number=(i // chunk_size) + 1,
+                                    text=chunk.strip(),
+                                    is_scanned=False,
+                                    tables_md=""
+                                ))
+                        return paginas
+            except Exception as ex_docx:
+                logger.error(f"Erro ao processar DOCX {pdf_path.name}: {ex_docx}")
+
+        # 3. Processamento padrão PyMuPDF para arquivos PDF reais
         try:
             doc = fitz.open(str(pdf_path))
             total_pages = len(doc)

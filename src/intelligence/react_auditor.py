@@ -79,7 +79,12 @@ class AuditorReActAgent:
     def _tem_credenciais_llm(self) -> bool:
         if settings.USE_CLOUD_PROXY and settings.AI_PROXY_URL:
             return True
-        return bool(settings.OPENAI_API_KEY or settings.ANTHROPIC_API_KEY or settings.GEMINI_API_KEY)
+        return bool(
+            settings.OPENROUTER_API_KEY
+            or settings.OPENAI_API_KEY 
+            or settings.ANTHROPIC_API_KEY 
+            or settings.GEMINI_API_KEY
+        )
 
     def _executar_auditoria_llm(
         self,
@@ -87,13 +92,23 @@ class AuditorReActAgent:
         texto_documentos: str,
         itens_pncp: Optional[List[Dict[str, Any]]]
     ) -> Optional[EditalAuditado]:
-        """Auditoria via API LLM estruturada ou Proxy Seguro Supabase."""
+        """Auditoria via API LLM estruturada (OpenRouter, Gemini, OpenAI) ou Proxy Seguro Supabase."""
         import httpx
+
+        def _extrair_json(raw: str) -> Dict[str, Any]:
+            txt = raw.strip()
+            if txt.startswith("```json"):
+                txt = txt[7:]
+            elif txt.startswith("```"):
+                txt = txt[3:]
+            if txt.endswith("```"):
+                txt = txt[:-3]
+            return json.loads(txt.strip())
 
         # Limitar contexto mantendo seções críticas
         prompt = f"""
 Você é um Auditor Jurídico e Técnico Especialista em Licitações Públicas (Lei 14.133/2021).
-Analise o edital abaixo e retorne ESTRITAMENTE um objeto JSON válido seguindo este formato exato:
+Analise com extrema precisão o edital abaixo e retorne ESTRITAMENTE um objeto JSON válido seguindo este formato exato:
 
 {{
   "numero_controle_pncp": "{raw_pncp_item.get('numeroControlePNCP')}",
@@ -117,10 +132,23 @@ Analise o edital abaixo e retorne ESTRITAMENTE um objeto JSON válido seguindo e
     "Índice de liquidez corrente... [Pág. Y]"
   ],
   "armadilhas_e_riscos": [
-    "Prazo de entrega curto... [Pág. Z]"
+    "BRECHA/RISCO: Prazo de entrega curto de 5 dias após empenho [Pág. Z]",
+    "BRECHA/RISCO: Multa diária excessiva de 2% [Pág. W]"
+  ],
+  "leis_aplicaveis": [
+    "Lei Federal 14.133/2021 (Regime Geral de Contratações) [Pág. 1]",
+    "Lei Complementar 123/2006 (Benefício ME/EPP e cota de 25%) [Pág. 3]"
+  ],
+  "coisas_obrigatorias": [
+    "Apresentação de Balanço Patrimonial e DRE registrados [Pág. 8]",
+    "Certidão Negativa de Falência e CNDT Válidas [Pág. 9]"
+  ],
+  "pontos_atencao": [
+    "Início da Disputa em 15/04 às 09:00 no Portal ComprasGov [Pág. 2]",
+    "Modo de disputa Aberto com intervalo mínimo de lance de R$ 0,05 [Pág. 4]"
   ],
   "score_aderencia": 8.5,
-  "recomendacao_executiva": "PARTICIPAR ou NÃO PARTICIPAR - Justificativa executiva cirúrgica."
+  "recomendacao_executiva": "PARTICIPAR ou NÃO PARTICIPAR - Parecer executivo direto sobre a viabilidade comercial e jurídica."
 }}
 
 TEXTO DO EDITAL / ANEXOS COM CITAÇÕES:
@@ -138,7 +166,7 @@ TEXTO DO EDITAL / ANEXOS COM CITAÇÕES:
                 }
                 payload = {
                     "prompt": prompt,
-                    "model": self.model_name or "gpt-4o-mini"
+                    "model": self.model_name or settings.LLM_MODEL or "gpt-4o-mini"
                 }
                 logger.info("Enviando requisição de auditoria ao Proxy Seguro de IA...")
                 resp = httpx.post(
@@ -154,22 +182,76 @@ TEXTO DO EDITAL / ANEXOS COM CITAÇÕES:
             except Exception as ex:
                 logger.warning(f"Falha ao chamar Proxy Seguro de IA: {ex}")
 
-        # 2. Chamada direta local (Ambiente de desenvolvimento)
+        # 2. Chamada direta OpenRouter (Modelos Free como Minimax, Xing, Nemotron, Llama)
+        if settings.OPENROUTER_API_KEY:
+            try:
+                model = self.model_name or settings.LLM_MODEL or "minimax/minimax-m3.1-flash:free"
+                logger.info(f"Executando auditoria LLM via OpenRouter ({model})...")
+                resp = httpx.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                        "HTTP-Referer": "https://zenolicitacoes.com.br",
+                        "X-Title": "Zeno Licitacoes"
+                    },
+                    json={
+                        "model": model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "response_format": {"type": "json_object"}
+                    },
+                    timeout=60.0
+                )
+                if resp.status_code == 200:
+                    raw_content = resp.json()["choices"][0]["message"]["content"]
+                    parsed = _extrair_json(raw_content)
+                    return EditalAuditado(**parsed)
+                else:
+                    logger.warning(f"OpenRouter retornou status {resp.status_code}: {resp.text}")
+            except Exception as ex:
+                logger.warning(f"Falha na chamada OpenRouter: {ex}")
+
+        # 3. Chamada direta OpenAI (Ambiente de desenvolvimento)
         if settings.OPENAI_API_KEY:
-            resp = httpx.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
-                json={
-                    "model": self.model_name or "gpt-4o-mini",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "response_format": {"type": "json_object"}
-                },
-                timeout=60.0
-            )
-            if resp.status_code == 200:
-                data = resp.json()["choices"][0]["message"]["content"]
-                parsed = json.loads(data)
-                return EditalAuditado(**parsed)
+            try:
+                resp = httpx.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+                    json={
+                        "model": self.model_name or "gpt-4o-mini",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "response_format": {"type": "json_object"}
+                    },
+                    timeout=60.0
+                )
+                if resp.status_code == 200:
+                    raw_content = resp.json()["choices"][0]["message"]["content"]
+                    parsed = _extrair_json(raw_content)
+                    return EditalAuditado(**parsed)
+            except Exception as ex:
+                logger.warning(f"Falha na chamada OpenAI: {ex}")
+
+        # 4. Chamada direta Google Gemini
+        if settings.GEMINI_API_KEY:
+            try:
+                model = self.model_name if self.model_name and "gemini" in self.model_name else "gemini-1.5-flash"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={settings.GEMINI_API_KEY}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "responseMimeType": "application/json"
+                    }
+                }
+                resp = httpx.post(url, json=payload, timeout=60.0)
+                if resp.status_code == 200:
+                    res_json = resp.json()
+                    raw_text = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                    parsed = _extrair_json(raw_text)
+                    return EditalAuditado(**parsed)
+                else:
+                    logger.warning(f"Google Gemini API retornou status {resp.status_code}: {resp.text}")
+            except Exception as ex:
+                logger.warning(f"Falha na chamada Google Gemini: {ex}")
+
         return None
 
     def _auditar_heuristico(
@@ -193,6 +275,9 @@ TEXTO DO EDITAL / ANEXOS COM CITAÇÕES:
         itens_interesse: List[ItemLote] = []
         exigencias: List[str] = []
         armadilhas: List[str] = []
+        leis: List[str] = []
+        coisas_obrigatorias: List[str] = []
+        pontos_atencao: List[str] = []
 
         # 1. Processar itens de interesse
         if itens_pncp:
@@ -222,11 +307,9 @@ TEXTO DO EDITAL / ANEXOS COM CITAÇÕES:
                 pagina_referencia=1
             ))
 
-        # 2. Detector de Exigências de Habilitação (Atestados, Índices, Conselhos)
-        # Buscar seções na árvore PageIndex ou no texto com citações [Pág. X]
+        # 2. Detector de Exigências, Leis, Armadilhas e Pontos de Atenção
         paginas_blocos = re.split(r'---\s*\[Pág\.\s*(\d+)\]\s*---', texto_completo)
         
-        # Mapeamento de texto por página
         texto_por_pagina: Dict[int, str] = {}
         if len(paginas_blocos) > 1:
             for i in range(1, len(paginas_blocos), 2):
@@ -237,62 +320,108 @@ TEXTO DO EDITAL / ANEXOS COM CITAÇÕES:
         for p_num, p_txt in texto_por_pagina.items():
             txt_lower = p_txt.lower()
             
-            # Atestados de Capacidade Técnica
-            if "atestado" in txt_lower and ("capacidade técnica" in txt_lower or "fornecimento" in txt_lower):
-                # Captura trecho relevante
+            # --- LEIS E DECRETOS ---
+            if "14.133" in txt_lower or "lei 14.133" in txt_lower or "lei nº 14.133" in txt_lower:
+                leis.append(f"Lei Federal nº 14.133/2021 (Nova Lei de Licitações e Contratos Administrativos) [Pág. {p_num}]")
+            if "123" in txt_lower and ("me/epp" in txt_lower or "microempresa" in txt_lower or "complementar" in txt_lower):
+                leis.append(f"Lei Complementar nº 123/2006 (Tratamento Diferenciado e Cota Reservada ME/EPP) [Pág. {p_num}]")
+            if "10.024" in txt_lower or "decreto 10.024" in txt_lower:
+                leis.append(f"Decreto Federal nº 10.024/2019 (Regulamento do Pregão Eletrônico) [Pág. {p_num}]")
+            if "13.303" in txt_lower:
+                leis.append(f"Lei Federal nº 13.303/2016 (Estatuto Jurídico das Empresas Estatais) [Pág. {p_num}]")
+            
+            # --- HABILITAÇÃO & COISAS OBRIGATÓRIAS ---
+            if "atestado" in txt_lower and ("capacidade técnica" in txt_lower or "fornecimento" in txt_lower or "serviço" in txt_lower):
                 match = re.search(r'([^.\n]*atestado[^.\n]*capacidade técnica[^.\n]*)', p_txt, re.IGNORECASE)
                 resumo_atestado = match.group(0).strip() if match else "Atestado de capacidade técnica para fornecimento compatível"
                 exigencias.append(f"{resumo_atestado[:120]} [Pág. {p_num}]")
+                coisas_obrigatorias.append(f"Atestado de Capacidade Técnica comprovando execução compatível [Pág. {p_num}]")
 
-            # Índices de Balanço (ILG, ILC, ISG)
             if any(idx in txt_lower for idx in ["liquidez geral", "liquidez corrente", "ilg", "ilc"]):
                 exigencias.append(f"Comprovação de Índices de Liquidez (ILG / ILC >= 1,0) via Balanço Patrimonial [Pág. {p_num}]")
+                coisas_obrigatorias.append(f"Balanço Patrimonial e Demonstrações Contábeis com índices mínimos [Pág. {p_num}]")
 
-            # Certidões ou Conselhos (CREA, CRA, ANVISA, Falência)
-            if "certidão negativa de falência" in txt_lower:
+            if "certidão negativa de falência" in txt_lower or "recuperação judicial" in txt_lower:
                 exigencias.append(f"Certidão Negativa de Falência e Recuperação Judicial [Pág. {p_num}]")
-            if any(cons in txt_lower for cons in ["registro no crea", "registro no cra", "anvisa"]):
-                exigencias.append(f"Registro ou autorização em conselho de classe/órgão regulador [Pág. {p_num}]")
+                coisas_obrigatorias.append(f"Certidão de Falência e Regularidade Fiscal Conjunta [Pág. {p_num}]")
 
-            # 3. Detector de Armadilhas ("Red Flags")
-            # Prazo de entrega muito curto (ex: 5 a 15 dias)
+            if any(cons in txt_lower for cons in ["registro no crea", "registro no cra", "anvisa", "conselho regional"]):
+                exigencias.append(f"Registro ou autorização em conselho de classe/órgão regulador [Pág. {p_num}]")
+                coisas_obrigatorias.append(f"Registro Profissional no Conselho de Classe Competente [Pág. {p_num}]")
+
+            if "garantia de proposta" in txt_lower or "garantia contratual" in txt_lower:
+                coisas_obrigatorias.append(f"Prestação de Garantia Contratual exigida no edital [Pág. {p_num}]")
+
+            # --- BRECHAS E RISCOS (ONDE PODEM PREJUDICAR O CLIENTE) ---
             prazo_match = re.search(r'prazo de entrega[^\d\n]{0,25}(\d+)\s*(?:dias|dias corridos|dias úteis)', txt_lower)
             if prazo_match:
                 dias = int(prazo_match.group(1))
                 if dias <= 15:
-                    armadilhas.append(f"Prazo de entrega curto: {dias} dias após Nota de Empenho [Pág. {p_num}]")
+                    armadilhas.append(f"BRECHA/RISCO CRÍTICO: Prazo de entrega muito curto ({dias} dias após empenho) [Pág. {p_num}]")
 
-            # Exigência de amostra
-            if "amostra" in txt_lower and any(w in txt_lower for w in ["apresentação", "prazo de", "sob pena"]):
-                armadilhas.append(f"Exigência de apresentação de amostra/prova de conceito em prazo determinado [Pág. {p_num}]")
+            if "amostra" in txt_lower and any(w in txt_lower for w in ["apresentação", "prazo de", "sob pena", "desclassificação"]):
+                armadilhas.append(f"BRECHA/RISCO: Exigência de apresentação de amostra/prova de conceito com risco de desclassificação [Pág. {p_num}]")
 
-            # Marca exclusiva / direcionamento
-            if "vedada a marca" in txt_lower or "marca exclusiva" in txt_lower:
-                armadilhas.append(f"Cláusula de restrição de marca identificada [Pág. {p_num}]")
+            if "vedada a marca" in txt_lower or "marca exclusiva" in txt_lower or "indicação de marca" in txt_lower:
+                armadilhas.append(f"BRECHA/RISCO: Cláusula com potencial restrição ou direcionamento de marca [Pág. {p_num}]")
 
-        # Exigências padrão mínimas caso o PDF não tenha sido baixado ainda
+            if "multa de" in txt_lower and any(p in txt_lower for p in ["por dia", "ao dia", "10%", "20%"]):
+                armadilhas.append(f"BRECHA/RISCO: Previsão de multas severas e penalidades rígidas de rescisão unilateral [Pág. {p_num}]")
+
+            if "visita técnica" in txt_lower and ("obrigatória" in txt_lower or "indeferimento" in txt_lower):
+                armadilhas.append(f"BRECHA/RISCO: Visita técnica presencial obrigatória como condição de habilitação [Pág. {p_num}]")
+
+            # --- PONTOS DE ATENÇÃO OPERACIONAIS ---
+            if any(term in txt_lower for term in ["modo de disputa", "intervalo mínimo", "lances"]):
+                pontos_atencao.append(f"Atenção às regras de lances e modo de disputa do pregão [Pág. {p_num}]")
+            if any(term in txt_lower for term in ["pagamento em até", "prazo de pagamento", "ordem bancária"]):
+                m_pg = re.search(r'pagamento\s+em\s+até\s+(\d+)\s+dias', txt_lower)
+                d_pg = m_pg.group(1) if m_pg else "30"
+                pontos_atencao.append(f"Prazo estimado de pagamento: {d_pg} dias após atesto da Nota Fiscal [Pág. {p_num}]")
+            if any(term in txt_lower for term in ["reajuste", "reajustamento", "repactuação"]):
+                pontos_atencao.append(f"Cláusula de reajustamento de preços e índice pactuado no contrato [Pág. {p_num}]")
+
+        # Fallbacks enriquecidos
+        if not leis:
+            leis.append("Lei Federal nº 14.133/2021 (Normas gerais de licitações públicas)")
+            leis.append("Lei Complementar nº 123/2006 (Tratamento diferenciado para ME e EPP)")
+
         if not exigencias:
             exigencias.append("Habilitação jurídica, regularidade fiscal e trabalhista padrão da Lei 14.133/2021 [Pág. 1]")
 
-        # Limitar para os mais críticos
-        exigencias = list(dict.fromkeys(exigencias))[:5]
-        armadilhas = list(dict.fromkeys(armadilhas))[:4]
+        if not coisas_obrigatorias:
+            coisas_obrigatorias.append("Certidões Negativas Federal, Estadual, Municipal e Trabalhista (CNDT)")
+            coisas_obrigatorias.append("Declaração de cumprimento aos requisitos de habilitação e menor aprendiz")
+
+        if not pontos_atencao:
+            data_disp_str = data_disputa or "Consulte a data no portal oficial"
+            pontos_atencao.append(f"Data e horário limite de disputa: {data_disp_str}")
+            pontos_atencao.append(f"Portal de Disputa: {portal_disputa}")
+
+        # Limitar para garantir síntese executiva de alto impacto
+        exigencias = list(dict.fromkeys(exigencias))[:6]
+        armadilhas = list(dict.fromkeys(armadilhas))[:6]
+        leis = list(dict.fromkeys(leis))[:5]
+        coisas_obrigatorias = list(dict.fromkeys(coisas_obrigatorias))[:6]
+        pontos_atencao = list(dict.fromkeys(pontos_atencao))[:5]
 
         # 4. Cálculo do Score de Aderência (0.0 a 10.0)
         score = 8.5
         if armadilhas:
-            score -= len(armadilhas) * 1.2
+            score -= len(armadilhas) * 1.0
         if any("amostra" in a.lower() for a in armadilhas):
-            score -= 1.0
+            score -= 0.8
+        if any("visita técnica" in a.lower() for a in armadilhas):
+            score -= 0.7
         if itens_interesse:
-            score += min(1.5, len(itens_interesse) * 0.5)
+            score += min(1.5, len(itens_interesse) * 0.4)
         score = round(max(1.0, min(10.0, score)), 1)
 
         # 5. Recomendação Executiva
         if score >= 7.5:
-            rec = f"PARTICIPAR - Oportunidade com alta compatibilidade ({len(itens_interesse)} itens de interesse) e riscos controlados."
+            rec = f"PARTICIPAR - Oportunidade com alta compatibilidade ({len(itens_interesse)} itens mapeados) e riscos controlados."
         elif score >= 5.0:
-            rec = f"AVALIAR COM RESSALVAS - Atenção redobrada aos prazos de entrega ou exigências de amostra apontadas."
+            rec = f"AVALIAR COM RESSALVAS - Atenção aos prazos de entrega ou exigências apontadas antes de formular proposta."
         else:
             rec = f"NÃO RECOMENDADO - Alto risco operacional devido a cláusulas restritivas ou prazos inexequíveis."
 
@@ -307,6 +436,9 @@ TEXTO DO EDITAL / ANEXOS COM CITAÇÕES:
             itens_interesse_cliente=itens_interesse,
             exigencias_habilitacao_criticas=exigencias,
             armadilhas_e_riscos=armadilhas,
+            leis_aplicaveis=leis,
+            coisas_obrigatorias=coisas_obrigatorias,
+            pontos_atencao=pontos_atencao,
             score_aderencia=score,
             recomendacao_executiva=rec,
             raw_pncp_data=raw_pncp_item,

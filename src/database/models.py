@@ -30,6 +30,11 @@ class EditalAuditado(BaseModel):
     itens_interesse_cliente: List[ItemLote] = Field(default_factory=list)
     exigencias_habilitacao_criticas: List[str] = Field(default_factory=list)
     armadilhas_e_riscos: List[str] = Field(default_factory=list)
+    leis_aplicaveis: List[str] = Field(default_factory=list)
+    coisas_obrigatorias: List[str] = Field(default_factory=list)
+    pontos_atencao: List[str] = Field(default_factory=list)
+    link_pncp: Optional[str] = None
+    link_disputa: Optional[str] = None
     score_aderencia: float = 0.0
     recomendacao_executiva: str = ""
     raw_pncp_data: Optional[Dict[str, Any]] = None

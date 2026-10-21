@@ -26,6 +26,7 @@ from rich.panel import Panel
 from src.config import settings
 from src.database.repository import Repository
 from src.collectors.pncp_api import PNCPClient
+from src.collectors.apify_client import ApifyClient
 from src.collectors.scrapling_fetcher import ScraplingFetcher
 from src.parsers.pdf_router import PDFRouter
 from src.intelligence.pageindex_tree import PageIndexTree
@@ -44,11 +45,12 @@ from src.licensing.validator import ClientLicenseConfig
 class BidEngineOrchestrator:
     """
     Orquestrador Central do Motor OaaS de Licitações Públicas.
-    Coordena: Coleta PNCP -> Download Furtivo -> Parser Híbrido -> PageIndex Vectorless RAG -> Auditoria ReAct -> WhatsApp Delivery.
+    Coordena: Consulta Apify / PNCP -> Download Furtivo -> Parser Híbrido -> PageIndex Vectorless RAG -> Auditoria ReAct -> WhatsApp Delivery.
     """
     def __init__(self, license_config: Optional[ClientLicenseConfig] = None):
         self.license_config = license_config
         self.repo = Repository()
+        self.apify = ApifyClient()
         self.pncp = PNCPClient()
         self.fetcher = ScraplingFetcher()
         self.pdf_router = PDFRouter()
@@ -73,12 +75,21 @@ class BidEngineOrchestrator:
             title="🎯 ZENO LIC - BID ENGINE"
         ))
 
-        # 1. Coleta na API do PNCP
-        editais_candidatos = self.pncp.buscar_contratacoes_abertas(
-            uf=target_uf,
-            dias_retroativos=dias_retroativos,
-            tamanho_pagina=max(10, max_editais)
-        )
+        # 1. Consulta prioritária via Apify (ou fallback PNCP)
+        if getattr(settings, "CONSULTA_PROVIDER", "apify") == "apify" or self.apify.is_configured():
+            logger.info("Executando consulta de editais via Apify...")
+            editais_candidatos = self.apify.consultar_editais(
+                uf=target_uf,
+                dias_retroativos=dias_retroativos,
+                tam_pagina=max(10, max_editais)
+            )
+        else:
+            logger.info("Executando consulta direta via PNCP...")
+            editais_candidatos = self.pncp.buscar_contratacoes_abertas(
+                uf=target_uf,
+                dias_retroativos=dias_retroativos,
+                tamanho_pagina=max(10, max_editais)
+            )
 
         if not editais_candidatos:
             console.print("[yellow]Nenhuma nova contratação encontrada para os filtros especificados.[/yellow]")

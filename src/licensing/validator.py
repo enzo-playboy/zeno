@@ -21,6 +21,12 @@ class ClientLicenseConfig(BaseModel):
     cnpj: Optional[str] = None
     uf_target: str = "MT"
     keywords: List[str] = Field(default_factory=lambda: ["informatica", "notebook", "servidor", "ti"])
+    negative_keywords: List[str] = Field(default_factory=lambda: ["obras", "pavimentacao", "limpeza", "combustivel", "merenda", "reforma"])
+    valor_minimo: Optional[float] = None
+    valor_maximo: Optional[float] = None
+    modalidades: List[str] = Field(default_factory=lambda: ["PREGÃO ELETRÔNICO", "DISPENSA ELETRÔNICA", "CONCORRÊNCIA"])
+    municipio_filtro: Optional[str] = None
+    score_minimo: Optional[int] = None
     whatsapp_number: Optional[str] = None
     whatsapp_webhook_url: Optional[str] = None
     is_active: bool = True

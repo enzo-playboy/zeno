@@ -52,17 +52,29 @@ class Settings(BaseSettings):
     PNCP_LOOKBACK_DAYS: int = 7
     PNCP_PAGE_SIZE: int = 10
     
-    # Banco de dados (Persistente no LOCALAPPDATA)
+    # Banco de dados (Persistente no LOCALAPPDATA e Nuvem Supabase)
     DATABASE_URL: str = f"sqlite:///{get_db_path()}"
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
     
+    # Cache Distribuído Redis (Obrigatório para Scans, Páginas Raspadas e Buffer)
+    REDIS_URL: str = "redis://127.0.0.1:6379/0"
+    REDIS_ENABLED: bool = True
+    REDIS_TTL_DEFAULT: int = 604800  # 7 dias em segundos
+    
+    # Apify Settings (Provedor oficial de consultas de editais)
+    APIFY_API_TOKEN: str = ""
+    APIFY_ACTOR_ID: str = "brasil-dados~pncp-editais"
+    APIFY_TIMEOUT: float = 60.0
+    CONSULTA_PROVIDER: str = "apify"
+    
     # LLM Settings
+    OPENROUTER_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
-    LLM_MODEL: str = "gpt-4o-mini"
-    LLM_PROVIDER: str = "openai"
+    LLM_MODEL: str = "minimax/minimax-m3.1-flash:free"
+    LLM_PROVIDER: str = "openrouter"
     USE_CLOUD_PROXY: bool = False
     AI_PROXY_URL: str = ""
     LICENSE_KEY: str = ""
