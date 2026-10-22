@@ -171,3 +171,19 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"[Supabase] Erro ao salvar edital no Supabase: {e}")
             return False
+
+    def listar_editais(self, limit: int = 100, busca: str = "") -> Optional[List[Dict[str, Any]]]:
+        if not self.is_configured:
+            return None
+        try:
+            url = f"{self.url}/rest/v1/editais?select=*&order=created_at.desc&limit={limit}"
+            if busca:
+                b = busca.strip()
+                url += f"&or=(orgao.ilike.*{b}*,objeto_resumo.ilike.*{b}*,numero_controle_pncp.ilike.*{b}*)"
+            with httpx.Client(timeout=self.timeout) as client:
+                resp = client.get(url, headers=self._get_headers())
+                if resp.status_code == 200:
+                    return resp.json()
+        except Exception as e:
+            logger.warning(f"[Supabase] Falha ao listar editais: {e}")
+        return None

@@ -635,52 +635,147 @@ class DesktopAPI:
     def buscar_licitacoes(self, uf: str = "MT", termo: str = "") -> Dict[str, Any]:
         """
         Chamado pelo JS: window.pywebview.api.buscar_licitacoes(uf, termo)
-        Executa consulta prioritária e obrigatória ao Apify (Actor brasildados/editais-licitacoes-brasil)
-        garantindo dados 100% reais sem dados aleatórios ou simulados.
+        Executa consulta ao Apify (Actor brasildados/editais-licitacoes-brasil),
+        persiste imediatamente no SQLite e Supabase, grava em cache no Redis
+        e mescla com editais já salvos para que nada suma ou se perca.
         """
         logger.info(f"Ponte PyWebView: buscar_licitacoes via Apify (uf='{uf}', termo='{termo}')")
+        uf_clean = (uf or "MT").strip().upper()
+        termo_clean = (termo or "").strip()
+
+        # 1. Consulta prioritária no Apify
+        itens_apify = []
         try:
             apify = ApifyClient()
             if apify.is_configured():
-                itens_apify = apify.consultar_editais(termo=termo, uf=uf, tam_pagina=50)
-                if itens_apify:
-                    editais = []
-                    for item in itens_apify:
-                        orgao_info = item.get("orgaoEntidade", {})
-                        razao = orgao_info.get("razaoSocial") if isinstance(orgao_info, dict) else str(orgao_info)
-                        cnpj_org = orgao_info.get("cnpj") if isinstance(orgao_info, dict) else ""
-                        num_pncp = item.get("numeroControlePNCP", "")
-                        ano = item.get("anoCompra") or datetime.now().year
-                        seq = item.get("sequencialCompra") or 1
-                        cnpj_clean = "".join(filter(str.isdigit, str(cnpj_org)))
-                        url_oficial = f"https://pncp.gov.br/app/editais/{cnpj_clean}/{ano}/{seq}" if cnpj_clean else f"https://pncp.gov.br/app/editais?q={num_pncp}"
-
-                        editais.append({
-                            "numero_controle_pncp": num_pncp,
-                            "orgao": razao or "Órgão Público",
-                            "modalidade": (item.get("modalidadeNome") or "PREGÃO ELETRÔNICO").upper(),
-                            "objeto_resumo": item.get("objetoCompra") or item.get("informacaoComplementar") or "Contratação Pública",
-                            "valor_total_estimado": float(item.get("valorTotalEstimado") or 0.0),
-                            "score_aderencia": None,
-                            "data_disputa": item.get("dataAberturaProposta") or item.get("dataEncerramentoProposta") or "Aberta",
-                            "url_oficial": url_oficial,
-                            "uf": item.get("uf") or uf,
-                            "municipioNome": item.get("municipioNome") or "",
-                            "origem_consulta": "apify",
-                            "raw": item
-                        })
-                    logger.info(f"[Apify] {len(editais)} editais retornados com sucesso pelo Actor oficial.")
-                    return {
-                        "status": "sucesso",
-                        "origem": "apify",
-                        "total": len(editais),
-                        "editais": editais
-                    }
+                logger.info(f"[Apify] Disparando Actor para UF={uf_clean}, Termo='{termo_clean}'...")
+                itens_apify = apify.consultar_editais(termo=termo_clean, uf=uf_clean, tam_pagina=50)
+            else:
+                logger.info("[Apify] API token não configurado. Utilizando coletor PNCP direto...")
+                pncp = PNCPClient()
+                if termo_clean:
+                    itens_apify = pncp.buscar_editais_search(termo=termo_clean, uf=uf_clean, tam_pagina=50)
+                else:
+                    itens_apify = pncp.buscar_contratacoes_abertas(uf=uf_clean, dias_retroativos=settings.PNCP_LOOKBACK_DAYS, tamanho_pagina=50)
         except Exception as e:
-            logger.error(f"Erro ao consultar via Apify: {e}")
+            logger.error(f"Erro na consulta Apify/PNCP: {e}")
 
-        # Se houver qualquer falha com o Apify, recorre ao MCP completo
-        return self.mcp_buscar_e_auditar_licitacoes(uf=uf, termo_busca=termo, limite=5)
+        # Se falhou e houver cache no Redis, recupera do cache
+        if not itens_apify:
+            cache_hit = self.redis_cache.obter_busca_editais(uf_clean, termo_clean)
+            if cache_hit:
+                logger.info(f"[Redis] Retornando {len(cache_hit)} editais do cache Redis.")
+                return {
+                    "status": "sucesso",
+                    "origem": "redis_cache",
+                    "total": len(cache_hit),
+                    "editais": cache_hit
+                }
+
+        editais_processados = []
+        mapa_processados = {}
+
+        # 2. Processa, normaliza e PERSISTE cada edital no SQLite, Supabase e Redis
+        for item in itens_apify:
+            num_pncp = str(item.get("numeroControlePNCP") or item.get("numero_controle_pncp") or "").strip()
+            if not num_pncp:
+                continue
+
+            orgao_info = item.get("orgaoEntidade", {})
+            razao = orgao_info.get("razaoSocial") if isinstance(orgao_info, dict) else str(orgao_info or "")
+            cnpj_org = orgao_info.get("cnpj") if isinstance(orgao_info, dict) else ""
+            ano = item.get("anoCompra") or datetime.now().year
+            seq = item.get("sequencialCompra") or 1
+            cnpj_clean = "".join(filter(str.isdigit, str(cnpj_org)))
+            url_oficial = f"https://pncp.gov.br/app/editais/{cnpj_clean}/{ano}/{seq}" if cnpj_clean else f"https://pncp.gov.br/app/editais?q={num_pncp}"
+
+            ed_dict = {
+                "numero_controle_pncp": num_pncp,
+                "orgao": razao or "Órgão Público",
+                "modalidade": (item.get("modalidadeNome") or item.get("modalidade") or "PREGÃO ELETRÔNICO").upper(),
+                "objeto_resumo": item.get("objetoCompra") or item.get("objeto") or item.get("informacaoComplementar") or "Contratação Pública",
+                "valor_total_estimado": float(item.get("valorTotalEstimado") or item.get("valorEstimado") or 0.0),
+                "score_aderencia": None,
+                "data_disputa": item.get("dataAberturaProposta") or item.get("dataEncerramentoProposta") or "Aberta",
+                "url_oficial": url_oficial,
+                "uf": item.get("uf") or uf_clean,
+                "municipioNome": item.get("municipioNome") or "",
+                "origem_consulta": "apify",
+                "status_processamento": "COLETADO",
+                "raw": item
+            }
+
+            # Preserva dados de auditoria se já foi auditado anteriormente
+            ed_salvo = self.repo.obter_edital(num_pncp)
+            if ed_salvo:
+                if ed_salvo.get("score_aderencia") is not None:
+                    ed_dict["score_aderencia"] = ed_salvo.get("score_aderencia")
+                if ed_salvo.get("exigencias"):
+                    ed_dict["exigencias"] = ed_salvo.get("exigencias")
+                if ed_salvo.get("armadilhas"):
+                    ed_dict["armadilhas"] = ed_salvo.get("armadilhas")
+                if ed_salvo.get("status_processamento"):
+                    ed_dict["status_processamento"] = ed_salvo.get("status_processamento")
+
+            # Persistência imediata no SQLite e Supabase
+            try:
+                self.repo.salvar_edital_coletado(ed_dict)
+            except Exception as e_save:
+                logger.warning(f"Erro ao persistir edital {num_pncp}: {e_save}")
+
+            # Cache imediato no Redis
+            try:
+                self.redis_cache.salvar_edital_cache(num_pncp, ed_dict)
+            except Exception:
+                pass
+
+            mapa_processados[num_pncp] = ed_dict
+            editais_processados.append(ed_dict)
+
+        # 3. Mescla com editais já persistidos no banco local para que o histórico NÃO suma
+        try:
+            editais_banco = self.repo.listar_editais_dashboard(limit=100, busca=termo_clean)
+            for eb in editais_banco:
+                num = eb.get("numero_controle_pncp")
+                if num and num not in mapa_processados:
+                    m = re.match(r'(\d{14})-\d+-0*(\d+)/(\d{4})', num)
+                    url_of = f"https://pncp.gov.br/app/editais/{m.group(1)}/{m.group(3)}/{int(m.group(2))}" if m else f"https://pncp.gov.br/app/editais?q={num}"
+
+                    item_banco = {
+                        "numero_controle_pncp": num,
+                        "orgao": eb.get("orgao") or "Órgão Público",
+                        "modalidade": (eb.get("modalidade") or "PREGÃO ELETRÔNICO").upper(),
+                        "objeto_resumo": eb.get("objeto_resumo") or "",
+                        "valor_total_estimado": float(eb.get("valor_total_estimado") or 0.0),
+                        "score_aderencia": eb.get("score_aderencia"),
+                        "data_disputa": eb.get("data_disputa") or "A definir",
+                        "url_oficial": url_of,
+                        "uf": uf_clean,
+                        "municipioNome": "",
+                        "origem_consulta": "persistido",
+                        "status_processamento": eb.get("status_processamento") or "COLETADO",
+                        "exigencias": eb.get("exigencias", []),
+                        "armadilhas": eb.get("armadilhas", []),
+                        "raw": eb.get("raw", {})
+                    }
+                    editais_processados.append(item_banco)
+                    mapa_processados[num] = item_banco
+        except Exception as e_banco:
+            logger.warning(f"Erro ao mesclar com editais do banco: {e_banco}")
+
+        # 4. Grava a lista consolidada no Redis Cache para buscas instantâneas
+        try:
+            self.redis_cache.salvar_busca_editais(uf_clean, termo_clean, editais_processados)
+        except Exception as e_rc:
+            logger.warning(f"Erro ao salvar busca no Redis: {e_rc}")
+
+        logger.info(f"[Zeno] Total de {len(editais_processados)} editais consolidados (Apify + SQLite + Supabase + Redis).")
+        return {
+            "status": "sucesso",
+            "origem": "apify_e_persistidos",
+            "total": len(editais_processados),
+            "editais": editais_processados
+        }
 
     def auditar_edital(self, numero_controle_pncp: str) -> Dict[str, Any]:
         """

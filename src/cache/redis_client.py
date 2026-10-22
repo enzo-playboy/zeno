@@ -216,6 +216,28 @@ class RedisCache:
         key = self._format_key("meta", id_ou_url)
         return self.get_json(key)
 
+    def salvar_busca_editais(self, uf: str, termo: str, editais: list, ttl: Optional[int] = 3600 * 6) -> bool:
+        """Salva no Redis o resultado de uma busca por UF e termo (TTL padrão: 6 horas)."""
+        clean_termo = termo.strip().lower() if termo else "todos"
+        key = self._format_key("search", f"{uf.upper()}:{clean_termo}")
+        return self.set_json(key, editais, ttl=ttl)
+
+    def obter_busca_editais(self, uf: str, termo: str) -> Optional[list]:
+        """Recupera do Redis o resultado de uma busca recente por UF e termo."""
+        clean_termo = termo.strip().lower() if termo else "todos"
+        key = self._format_key("search", f"{uf.upper()}:{clean_termo}")
+        return self.get_json(key)
+
+    def salvar_edital_cache(self, pncp_id: str, edital_data: dict, ttl: Optional[int] = None) -> bool:
+        """Salva edital individual no Redis para acesso instantâneo."""
+        key = self._format_key("edital", pncp_id)
+        return self.set_json(key, edital_data, ttl=ttl)
+
+    def obter_edital_cache(self, pncp_id: str) -> Optional[dict]:
+        """Obtém edital individual do Redis."""
+        key = self._format_key("edital", pncp_id)
+        return self.get_json(key)
+
 
 def get_redis_cache() -> RedisCache:
     """Retorna a instância singleton do RedisCache."""

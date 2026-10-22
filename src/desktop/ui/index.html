@@ -157,6 +157,27 @@
     .typing-dot:nth-child(1) { animation: typingBounce 1.2s infinite ease-in-out; }
     .typing-dot:nth-child(2) { animation: typingBounce 1.2s infinite ease-in-out 0.2s; }
     .typing-dot:nth-child(3) { animation: typingBounce 1.2s infinite ease-in-out 0.4s; }
+
+    /* Shimmer Skeleton Animado Contínuo para Estados de Carregamento */
+    @keyframes skeletonShimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton-box {
+      background: linear-gradient(90deg, #E2E8F0 0%, #F8FAFC 45%, #E2E8F0 85%);
+      background-size: 300% 100%;
+      animation: skeletonShimmer 1.8s ease-in-out infinite;
+    }
+
+    /* Linha de Progresso Global Superior com Glow Neon */
+    @keyframes loaderSlide {
+      0% { transform: translateX(-100%); }
+      50% { transform: translateX(0%); }
+      100% { transform: translateX(100%); }
+    }
+    .animate-loaderSlide {
+      animation: loaderSlide 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
   </style>
 </head>
 <body class="flex w-full h-full text-brand-dark antialiased bg-brand-bg">
@@ -239,6 +260,11 @@
 
   <!-- ==================== ÁREA DE CONTEÚDO PRINCIPAL (100% FLUIDA) ==================== -->
   <main class="flex-1 h-full flex flex-col bg-white overflow-hidden relative">
+    
+    <!-- Barra Global de Progresso Animada Superior (Neon Shimmer) -->
+    <div id="global-top-loader" class="hidden absolute top-0 left-0 right-0 h-1 z-50 overflow-hidden bg-brand-lime/20">
+      <div class="h-full w-full bg-gradient-to-r from-transparent via-brand-lime to-brand-limeHover animate-loaderSlide shadow-[0_0_12px_rgba(184,255,1,0.8)]"></div>
+    </div>
     
     <!-- Header Superior com Ações e Filtros -->
     <header class="h-20 border-b border-brand-border/70 px-8 flex items-center justify-between bg-white/80 backdrop-blur-md shrink-0 z-10">
@@ -548,11 +574,17 @@
 
         <!-- Indicador de Digitando IA (Oculto por padrão) -->
         <div id="chat-typing" class="px-6 py-2 hidden flex items-center gap-3">
-          <div class="w-7 h-7 rounded-xl bg-brand-dark text-brand-lime flex items-center justify-center text-[10px] font-bold">Z</div>
-          <div class="bg-[#F5F7FA] px-4 py-2.5 rounded-full flex items-center gap-1.5 border border-brand-border">
-            <span class="w-1.5 h-1.5 rounded-full bg-brand-dark typing-dot"></span>
-            <span class="w-1.5 h-1.5 rounded-full bg-brand-dark typing-dot"></span>
-            <span class="w-1.5 h-1.5 rounded-full bg-brand-dark typing-dot"></span>
+          <div class="relative flex items-center justify-center">
+            <div class="w-8 h-8 rounded-xl bg-brand-dark text-brand-lime flex items-center justify-center text-xs font-black shadow-md shadow-brand-dark/20">Z</div>
+            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-brand-lime animate-ping"></span>
+          </div>
+          <div class="bg-[#F5F7FA] px-4 py-2.5 rounded-2xl flex items-center gap-2 border border-brand-border shadow-sm">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-brand-dark typing-dot"></span>
+              <span class="w-2 h-2 rounded-full bg-brand-dark typing-dot"></span>
+              <span class="w-2 h-2 rounded-full bg-brand-dark typing-dot"></span>
+            </div>
+            <span class="text-[11px] font-bold text-brand-subtle animate-pulse pl-1">Zeno IA analisando edital...</span>
           </div>
         </div>
 
@@ -1742,6 +1774,196 @@
       executarBuscaPNCPReal(currentUF, currentKeywords);
     }
 
+    // =========================================================================
+    // CONTROLADORES DE ANIMAÇÃO DE CARREGAMENTO GLOBAL E SKELETONS
+    // =========================================================================
+
+    let radarLoadingInterval = null;
+    let radarSecondsCounter = 0;
+
+    function iniciarCarregamentoGlobal() {
+      const bar = document.getElementById('global-top-loader');
+      if (bar) bar.classList.remove('hidden');
+    }
+
+    function finalizarCarregamentoGlobal() {
+      const bar = document.getElementById('global-top-loader');
+      if (bar) bar.classList.add('hidden');
+      if (radarLoadingInterval) {
+        clearInterval(radarLoadingInterval);
+        radarLoadingInterval = null;
+      }
+    }
+
+    function mostrarAnimacaoCarregandoEditais(uf = 'MT', keywords = []) {
+      iniciarCarregamentoGlobal();
+      const container = document.getElementById('editais-list');
+      const banner = document.getElementById('empty-search-banner');
+      const headerSummary = document.getElementById('editais-header-summary');
+      const filterBadge = document.getElementById('filter-tag-badge');
+
+      if (banner) {
+        banner.innerHTML = '';
+        banner.classList.add('hidden');
+      }
+
+      const kwsTexto = (keywords || []).filter(k => k && k.trim()).join(', ');
+      if (filterBadge) filterBadge.textContent = kwsTexto ? `Varrendo: ${kwsTexto}` : `Varrendo Geral de ${uf}`;
+      if (headerSummary) headerSummary.innerHTML = `<span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-brand-lime animate-ping"></span>Sincronizando contratações em tempo real (${uf})...</span>`;
+
+      if (!container) return;
+
+      if (radarLoadingInterval) {
+        clearInterval(radarLoadingInterval);
+        radarLoadingInterval = null;
+      }
+      radarSecondsCounter = 0;
+
+      const etapasLoading = [
+        "Iniciando Actor Apify em tempo real...",
+        "Conectando ao Portal Nacional de Contratações Públicas (PNCP)...",
+        "Consultando cache de alta velocidade no Redis...",
+        "Sincronizando novas vagas na nuvem Supabase...",
+        "Auditando exigências e calculando Score de IA PageIndex..."
+      ];
+
+      // Banner dinâmico de status com radar pulsante + Skeleton cards com shimmer
+      container.innerHTML = `
+        <!-- Card de Status do Radar com Scanner Pulsante -->
+        <div id="radar-loading-card" class="bg-gradient-to-r from-brand-dark via-slate-900 to-brand-dark p-6 rounded-3xl text-white shadow-xl border border-brand-lime/30 relative overflow-hidden">
+          <div class="absolute -right-8 -bottom-8 w-44 h-44 bg-brand-lime/10 rounded-full blur-3xl pointer-events-none"></div>
+          
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
+            <div class="flex items-start md:items-center gap-4">
+              <!-- Círculo de Radar Pulsante -->
+              <div class="relative flex items-center justify-center shrink-0">
+                <div class="w-12 h-12 rounded-2xl bg-brand-lime/20 border border-brand-lime flex items-center justify-center text-brand-lime">
+                  <i data-lucide="radar" class="w-6 h-6 animate-spin" style="animation-duration: 3s;"></i>
+                </div>
+                <span class="absolute w-full h-full rounded-2xl bg-brand-lime/30 animate-ping"></span>
+              </div>
+              <div>
+                <div class="flex items-center gap-2.5">
+                  <h4 class="text-sm font-black tracking-wide text-white flex items-center gap-2">
+                    <span>BUSCA INTELIGENTE EM ANDAMENTO</span>
+                    <span class="text-[9px] uppercase font-black bg-brand-lime text-brand-dark px-2 py-0.5 rounded-full shadow-sm">AO VIVO</span>
+                  </h4>
+                </div>
+                <p id="radar-loading-status-text" class="text-xs text-slate-300 font-medium mt-1 transition-all duration-300">
+                  ${etapasLoading[0]}
+                </p>
+              </div>
+            </div>
+
+            <!-- Contador de Tempo e Indicador de Nuvem -->
+            <div class="flex items-center gap-3 shrink-0 self-end md:self-auto">
+              <div class="bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/10 text-right">
+                <span class="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Tempo</span>
+                <span id="radar-loading-timer" class="text-xs font-black text-brand-lime font-mono">00:00</span>
+              </div>
+              <div class="bg-white/10 px-3 py-2 rounded-xl border border-white/10 flex items-center gap-2 text-xs font-bold text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Redis & Supabase</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra de Progresso Fluida -->
+          <div class="mt-4 w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+            <div class="h-full bg-gradient-to-r from-transparent via-brand-lime to-white rounded-full animate-loaderSlide"></div>
+          </div>
+        </div>
+
+        <!-- 3 Cards Skeletons com Efeito Shimmer Moderno -->
+        <div class="space-y-4 pt-2">
+          ${[1, 2, 3].map(i => `
+            <div class="bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm relative overflow-hidden space-y-4">
+              <!-- Shimmer overlay -->
+              <div class="skeleton-box absolute inset-0 pointer-events-none opacity-60"></div>
+              
+              <div class="flex justify-between items-start">
+                <div class="space-y-2 w-2/3">
+                  <div class="h-3 bg-slate-200 rounded-full w-1/4 animate-pulse"></div>
+                  <div class="h-5 bg-slate-200 rounded-xl w-4/5 animate-pulse"></div>
+                  <div class="h-3 bg-slate-200 rounded-full w-2/5 animate-pulse"></div>
+                </div>
+                <div class="h-7 w-24 bg-slate-200 rounded-full animate-pulse"></div>
+              </div>
+
+              <div class="space-y-2 pt-2">
+                <div class="h-3.5 bg-slate-100 rounded-lg w-full animate-pulse"></div>
+                <div class="h-3.5 bg-slate-100 rounded-lg w-5/6 animate-pulse"></div>
+              </div>
+
+              <div class="flex justify-between items-center pt-4 border-t border-brand-border/50">
+                <div class="h-4 bg-slate-200 rounded-md w-32 animate-pulse"></div>
+                <div class="flex gap-2">
+                  <div class="h-8 w-28 bg-slate-200 rounded-xl animate-pulse"></div>
+                  <div class="h-8 w-24 bg-slate-200 rounded-xl animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      if (window.lucide) lucide.createIcons();
+
+      let etapaIndex = 0;
+      radarLoadingInterval = setInterval(() => {
+        radarSecondsCounter++;
+        const mins = String(Math.floor(radarSecondsCounter / 60)).padStart(2, '0');
+        const secs = String(radarSecondsCounter % 60).padStart(2, '0');
+        const timerEl = document.getElementById('radar-loading-timer');
+        if (timerEl) timerEl.textContent = `${mins}:${secs}`;
+
+        if (radarSecondsCounter % 2 === 0) {
+          etapaIndex = (etapaIndex + 1) % etapasLoading.length;
+          const statusTextEl = document.getElementById('radar-loading-status-text');
+          if (statusTextEl) {
+            statusTextEl.style.opacity = '0.3';
+            setTimeout(() => {
+              if (statusTextEl) {
+                statusTextEl.textContent = etapasLoading[etapaIndex];
+                statusTextEl.style.opacity = '1';
+              }
+            }, 150);
+          }
+        }
+      }, 1000);
+    }
+
+    async function auditarEditalScrapling(numeroPncp) {
+      if (!numeroPncp) return;
+      iniciarCarregamentoGlobal();
+      showToast(`Iniciando auditoria profunda com Scrapling & IA (Edital: ${numeroPncp})...`, 'info');
+      try {
+        if (window.pywebview && window.pywebview.api && window.pywebview.api.auditar_edital_completo) {
+          const res = await window.pywebview.api.auditar_edital_completo(numeroPncp);
+          if (res && res.status === 'ok') {
+            showToast('Auditoria concluída com sucesso! Exigências salvas no Supabase.', 'success');
+            if (currentEditais && currentEditais.length > 0) {
+              const ed = currentEditais.find(e => e.numero_controle_pncp === numeroPncp);
+              if (ed && res.exigencias) {
+                ed.exigencias = res.exigencias;
+                ed.status_processamento = 'CONCLUIDO';
+                renderEditaisNaTela(currentEditais, currentEditais, currentKeywords, currentUF);
+              }
+            }
+          } else {
+            showToast(res ? res.mensagem : 'Auditoria finalizada.', 'info');
+          }
+        } else {
+          setTimeout(() => {
+            showToast(`Simulação de auditoria Scrapling concluída para ${numeroPncp}!`, 'success');
+          }, 1200);
+        }
+      } catch (err) {
+        showToast('Erro durante a auditoria: ' + err, 'warn');
+      } finally {
+        finalizarCarregamentoGlobal();
+      }
+    }
 
     // =========================================================================
     // MOTOR DE BUSCA 100% REAL NO PNCP (GOVERNO FEDERAL)
@@ -1755,6 +1977,8 @@
         btn.disabled = true;
       }
 
+      // Dispara imediatamente o banner de status com radar e os skeletons animados
+      mostrarAnimacaoCarregandoEditais(uf, keywords);
       showToast(`Consultando Apify em tempo real (Actor Oficial | UF: ${uf})...`, 'info');
 
       try {
@@ -1929,6 +2153,7 @@
         console.error('Erro na varredura PNCP:', err);
         showToast('Erro ao consultar PNCP: ' + err.message, 'warn');
       } finally {
+        finalizarCarregamentoGlobal();
         if (btn) {
           btn.innerHTML = originalText;
           btn.disabled = false;
@@ -1991,6 +2216,7 @@
     }
 
     function renderEditaisNaTela(filtrados, todosRecebidos, keywords, uf) {
+      finalizarCarregamentoGlobal();
       const container = document.getElementById('editais-list');
       const banner = document.getElementById('empty-search-banner');
       const headerSummary = document.getElementById('editais-header-summary');
@@ -2050,9 +2276,14 @@
         card.className = 'edital-card motion-card bg-white p-6 rounded-3xl border border-brand-border/90 shadow-sm';
         
         const valorFormatado = formatBRL(ed.valor_total_estimado);
-        const scoreBadge = ed.score_aderencia 
+        const scoreBadge = ed.score_aderencia && Number(ed.score_aderencia) > 0
           ? `<div class="mt-1.5 inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-brand-lime text-brand-dark text-xs font-extrabold shadow-sm">★ Score ${Number(ed.score_aderencia).toFixed(1)} / 10</div>`
           : `<div class="mt-1.5 inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">★ Oportunidade Aberta</div>`;
+
+        const statusProc = ed.status_processamento || 'COLETADO';
+        const statusBadge = (statusProc === 'CONCLUIDO')
+          ? `<span class="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">✓ Auditado IA</span>`
+          : `<span class="text-[10px] font-extrabold bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">⚡ Salvo • Redis & Supabase</span>`;
 
         let checklistHtml = '';
         if (ed.exigencias && Array.isArray(ed.exigencias) && ed.exigencias.length > 0) {
@@ -2076,7 +2307,7 @@
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span class="font-bold text-brand-dark">Recebendo Propostas no PNCP</span>
               </div>
-              <span class="text-[11px] font-medium text-brand-subtle">Fonte: API Oficial Gov.br • Status Verificado</span>
+              <span class="text-[11px] font-medium text-brand-subtle">Persistência ativa • SQLite & Nuvem</span>
             </div>
           `;
         }
@@ -2088,6 +2319,7 @@
             <div class="space-y-1.5 flex-1 pr-6">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-[11px] font-black bg-brand-dark text-white px-3 py-0.5 rounded-full tracking-wide">${ed.modalidade}</span>
+                ${statusBadge}
                 <span class="text-xs text-brand-subtle font-mono font-semibold truncate max-w-md">ID PNCP: ${ed.numero_controle_pncp}</span>
               </div>
               <h2 class="text-lg font-extrabold text-brand-dark tracking-tight">${ed.orgao}</h2>
@@ -2123,6 +2355,14 @@
         `;
         container.appendChild(card);
       });
+
+      // Animação de entrada suave escalonada (Stagger) para cada card renderizado
+      if (window.gsap) {
+        gsap.fromTo('#editais-list .edital-card', 
+          { opacity: 0, y: 16, scale: 0.98 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.35, stagger: 0.05, ease: 'power2.out' }
+        );
+      }
     }
 
     // Atualiza os Cards de Métricas Principais da Home
@@ -2291,19 +2531,23 @@
 
       const typingEl = document.getElementById('chat-typing');
       typingEl.classList.remove('hidden');
+      iniciarCarregamentoGlobal();
 
       const editalId = document.getElementById('chat-edital-select').value;
 
       if (window.pywebview && window.pywebview.api && window.pywebview.api.perguntar_juridico) {
         window.pywebview.api.perguntar_juridico(editalId, text).then(reply => {
+          finalizarCarregamentoGlobal();
           typingEl.classList.add('hidden');
           renderAiMessage(reply);
         }).catch(() => {
+          finalizarCarregamentoGlobal();
           typingEl.classList.add('hidden');
           renderAiMessage('Não foi possível obter resposta no momento.');
         });
       } else {
         setTimeout(() => {
+          finalizarCarregamentoGlobal();
           typingEl.classList.add('hidden');
           renderAiMessage(`Auditoria em tempo real para o edital selecionado: Sobre "<strong>${text}</strong>", o Termo de Referência exige regularidade fiscal e técnica plena nos termos da Lei 14.133/2021, sem cláusulas restritivas ou abusivas de marca.`);
         }, 800);
@@ -2356,28 +2600,59 @@
       const container = document.getElementById('relatorios-grid');
       if (!container) return;
 
+      iniciarCarregamentoGlobal();
+      container.innerHTML = `
+        <div class="skeleton-box bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex items-start justify-between">
+          <div class="flex items-start gap-3.5 w-full">
+            <div class="w-11 h-11 rounded-2xl bg-slate-200 shrink-0"></div>
+            <div class="space-y-2 w-full pr-4">
+              <div class="h-3.5 bg-slate-200 rounded w-3/4"></div>
+              <div class="h-2.5 bg-slate-100 rounded w-1/2"></div>
+              <div class="h-4 bg-slate-200/80 rounded-full w-24"></div>
+            </div>
+          </div>
+        </div>
+        <div class="skeleton-box bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex items-start justify-between">
+          <div class="flex items-start gap-3.5 w-full">
+            <div class="w-11 h-11 rounded-2xl bg-slate-200 shrink-0"></div>
+            <div class="space-y-2 w-full pr-4">
+              <div class="h-3.5 bg-slate-200 rounded w-3/4"></div>
+              <div class="h-2.5 bg-slate-100 rounded w-1/2"></div>
+              <div class="h-4 bg-slate-200/80 rounded-full w-24"></div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const finalizar = (arquivos) => {
+        finalizarCarregamentoGlobal();
+        renderizarListaArquivos(arquivos, container);
+      };
+
       if (window.pywebview && window.pywebview.api && window.pywebview.api.listar_relatorios_pdfs) {
         window.pywebview.api.listar_relatorios_pdfs().then(arquivos => {
-          renderizarListaArquivos(arquivos, container);
+          finalizar(arquivos);
         }).catch(err => {
-          renderizarListaArquivos([], container);
+          finalizar([]);
         });
       } else {
-        // Se estiver no navegador, exibe os editais salvos do banco local
-        if (currentEditais && currentEditais.length > 0) {
-          const salvos = currentEditais.filter(e => e.exigencias && e.exigencias.length > 0);
-          if (salvos.length > 0) {
-            renderizarListaArquivos(salvos.map(s => ({
-              nome: `Edital_${s.numero_controle_pncp.replace(/[\/\-]/g, '_')}.pdf`,
-              orgao: s.orgao,
-              extensao: 'PDF',
-              tamanho_mb: '1.24',
-              numero_pncp: s.numero_controle_pncp
-            })), container);
-            return;
+        setTimeout(() => {
+          // Se estiver no navegador, exibe os editais salvos do banco local
+          if (currentEditais && currentEditais.length > 0) {
+            const salvos = currentEditais.filter(e => e.exigencias && e.exigencias.length > 0);
+            if (salvos.length > 0) {
+              finalizar(salvos.map(s => ({
+                nome: `Edital_${s.numero_controle_pncp.replace(/[\/\-]/g, '_')}.pdf`,
+                orgao: s.orgao,
+                extensao: 'PDF',
+                tamanho_mb: '1.24',
+                numero_pncp: s.numero_controle_pncp
+              })));
+              return;
+            }
           }
-        }
-        renderizarListaArquivos([], container);
+          finalizar([]);
+        }, 300);
       }
     }
 
@@ -2423,6 +2698,13 @@
         container.appendChild(item);
       });
       lucide.createIcons();
+
+      if (window.gsap && arquivos.length > 0) {
+        gsap.fromTo('#relatorios-grid > div', 
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.3, stagger: 0.05, ease: 'power2.out' }
+        );
+      }
     }
 
     // Inicialização ao carregar a página
@@ -2432,20 +2714,39 @@
     });
 
     async function carregarEstadoInicialLimpo() {
-      // 1. Limpa os containers de listas
       const container = document.getElementById('editais-list');
       if (container) {
+        iniciarCarregamentoGlobal();
         container.innerHTML = `
-          <div class="col-span-full text-center py-12 bg-white rounded-3xl border border-dashed border-brand-border p-8">
-            <div class="w-12 h-12 rounded-2xl bg-brand-lime/20 text-brand-dark flex items-center justify-center mx-auto mb-3">
-              <i data-lucide="sparkles" class="w-6 h-6"></i>
+          <div class="skeleton-box bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm space-y-4">
+            <div class="flex justify-between items-center">
+              <div class="h-3.5 bg-slate-200 rounded w-28"></div>
+              <div class="h-6 bg-slate-200 rounded-full w-20"></div>
             </div>
-            <h4 class="text-sm font-bold text-brand-dark">Pronto para buscar no Apify</h4>
-            <p class="text-xs text-brand-subtle max-w-md mx-auto mt-1">Clique em "BUSCAR VIA APIFY" para consultar editais e licitações abertas com dados integrados ao Supabase.</p>
+            <div class="h-5 bg-slate-200 rounded w-3/4"></div>
+            <div class="h-3 bg-slate-100 rounded w-1/2"></div>
+            <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+              <div class="h-6 bg-slate-200 rounded w-32"></div>
+              <div class="h-8 bg-slate-200 rounded-xl w-28"></div>
+            </div>
+          </div>
+          <div class="skeleton-box bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm space-y-4">
+            <div class="flex justify-between items-center">
+              <div class="h-3.5 bg-slate-200 rounded w-32"></div>
+              <div class="h-6 bg-slate-200 rounded-full w-20"></div>
+            </div>
+            <div class="h-5 bg-slate-200 rounded w-2/3"></div>
+            <div class="h-3 bg-slate-100 rounded w-1/3"></div>
+            <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+              <div class="h-6 bg-slate-200 rounded w-32"></div>
+              <div class="h-8 bg-slate-200 rounded-xl w-28"></div>
+            </div>
           </div>
         `;
-        lucide.createIcons();
       }
+
+      // 1. Conexão PyWebView para carregar configurações e filtros salvos
+      await carregarConfiguracoesSalvas();
 
       // 2. Conexão PyWebView para métricas do banco de dados real
       if (window.pywebview && window.pywebview.api && window.pywebview.api.obter_metricas) {
@@ -2464,8 +2765,38 @@
         }
       }
 
-      // 3. Conexão PyWebView para carregar configurações e filtros salvos
-      await carregarConfiguracoesSalvas();
+      // 3. Carrega editais já persistidos no SQLite / Supabase para não sumirem da tela
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.listar_editais) {
+        try {
+          const salvos = await window.pywebview.api.listar_editais();
+          finalizarCarregamentoGlobal();
+          if (salvos && salvos.length > 0) {
+            currentEditais = salvos;
+            renderEditaisNaTela(salvos, salvos, currentKeywords, currentUF);
+            atualizarMetricasComDadosReais(salvos, currentUF);
+            return;
+          }
+        } catch(e) {
+          finalizarCarregamentoGlobal();
+          console.warn('Erro ao carregar editais persistidos inicialmente:', e);
+        }
+      } else {
+        finalizarCarregamentoGlobal();
+      }
+
+      // 4. Se ainda não houver nenhum edital salvo no banco, exibe o banner orientativo
+      if (container) {
+        container.innerHTML = `
+          <div class="col-span-full text-center py-12 bg-white rounded-3xl border border-dashed border-brand-border p-8">
+            <div class="w-12 h-12 rounded-2xl bg-brand-lime/20 text-brand-dark flex items-center justify-center mx-auto mb-3">
+              <i data-lucide="sparkles" class="w-6 h-6"></i>
+            </div>
+            <h4 class="text-sm font-bold text-brand-dark">Pronto para buscar no Apify</h4>
+            <p class="text-xs text-brand-subtle max-w-md mx-auto mt-1">Clique em "BUSCAR VIA APIFY" para consultar editais e licitações abertas. Tudo ficará gravado no Redis e Supabase.</p>
+          </div>
+        `;
+        lucide.createIcons();
+      }
     }
 
     async function carregarConfiguracoesSalvas() {

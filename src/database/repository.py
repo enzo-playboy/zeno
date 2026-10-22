@@ -1022,6 +1022,112 @@ class Repository:
 
         return edital_id
 
+    def salvar_edital_coletado(self, item: Dict[str, Any], org_id: str = "org_default", user_name: str = "Apify") -> int:
+        """
+        Salva ou atualiza um edital recém-coletado via Apify/PNCP.
+        Garante persistência imediata no SQLite e Supabase, preservando
+        auditorias existentes e evitando que editais sumam após a busca.
+        """
+        num_pncp = str(item.get("numero_controle_pncp") or item.get("numeroControlePNCP") or "").strip()
+        if not num_pncp:
+            return 0
+
+        hash_id = self.gerar_hash_edital(num_pncp)
+        orgao = item.get("orgao") or (item.get("orgaoEntidade", {}).get("razaoSocial") if isinstance(item.get("orgaoEntidade"), dict) else "Órgão Público")
+        modalidade = item.get("modalidade") or item.get("modalidadeNome") or "PREGÃO ELETRÔNICO"
+        data_disputa = item.get("data_disputa") or item.get("dataAberturaProposta") or item.get("dataEncerramentoProposta") or "Aberta"
+        portal_disputa = item.get("portal_disputa") or item.get("link_disputa") or item.get("linkSistemaOrigem") or "PNCP"
+        objeto = item.get("objeto_resumo") or item.get("objetoCompra") or item.get("informacaoComplementar") or "Contratação Pública"
+        try:
+            valor = float(item.get("valor_total_estimado") or item.get("valorTotalEstimado") or 0.0)
+        except (ValueError, TypeError):
+            valor = 0.0
+        raw_data = item.get("raw") or item
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, status_processamento, score_aderencia FROM editais WHERE numero_controle_pncp = ?", (num_pncp,))
+            existente = cursor.fetchone()
+
+            if existente:
+                cursor.execute("""
+                UPDATE editais SET
+                    orgao = COALESCE(?, orgao),
+                    modalidade = COALESCE(?, modalidade),
+                    data_disputa = COALESCE(?, data_disputa),
+                    portal_disputa = COALESCE(?, portal_disputa),
+                    objeto_resumo = COALESCE(?, objeto_resumo),
+                    valor_total_estimado = CASE WHEN ? > 0 THEN ? ELSE valor_total_estimado END,
+                    raw_pncp_json = COALESCE(?, raw_pncp_json),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE numero_controle_pncp = ?
+                """, (
+                    orgao,
+                    modalidade,
+                    data_disputa,
+                    portal_disputa,
+                    objeto,
+                    valor, valor,
+                    json.dumps(raw_data, ensure_ascii=False, default=str),
+                    num_pncp
+                ))
+                conn.commit()
+                ed_id = existente["id"]
+            else:
+                cursor.execute("""
+                INSERT INTO editais (
+                    numero_controle_pncp,
+                    hash_identificador,
+                    orgao,
+                    modalidade,
+                    data_disputa,
+                    portal_disputa,
+                    objeto_resumo,
+                    valor_total_estimado,
+                    score_aderencia,
+                    recomendacao_executiva,
+                    itens_json,
+                    exigencias_json,
+                    armadilhas_json,
+                    raw_pncp_json,
+                    status_processamento,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 'Aguardando auditoria detalhada.', '[]', '[]', '[]', ?, 'COLETADO', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, (
+                    num_pncp,
+                    hash_id,
+                    orgao,
+                    modalidade,
+                    data_disputa,
+                    portal_disputa,
+                    objeto,
+                    valor,
+                    json.dumps(raw_data, ensure_ascii=False, default=str)
+                ))
+                conn.commit()
+                ed_id = cursor.lastrowid
+
+        # Sincroniza também no Supabase se configurado
+        if self.supabase.is_configured:
+            try:
+                self.supabase.upsert_edital({
+                    "numero_controle_pncp": num_pncp,
+                    "hash_identificador": hash_id,
+                    "orgao": orgao,
+                    "modalidade": modalidade,
+                    "data_disputa": data_disputa,
+                    "portal_disputa": portal_disputa,
+                    "objeto_resumo": objeto,
+                    "valor_total_estimado": valor,
+                    "status_processamento": "COLETADO",
+                    "raw_pncp_json": raw_data if isinstance(raw_data, dict) else {}
+                })
+            except Exception as e:
+                logger.warning(f"[Supabase Sync] Falha ao sincronizar edital coletado {num_pncp}: {e}")
+
+        return ed_id
+
     def registrar_alerta(self, alerta: AlertaEnviado) -> int:
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -1033,7 +1139,7 @@ class Repository:
             return cursor.lastrowid
 
     def listar_editais_dashboard(self, limit: int = 50, busca: str = "") -> List[Dict[str, Any]]:
-        """Lista os editais para exibição no Dashboard interativo."""
+        """Lista os editais para exibição no Dashboard interativo, com sincronização automática SQLite + Supabase."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
             query = """
@@ -1050,6 +1156,7 @@ class Repository:
                 itens_json,
                 exigencias_json,
                 armadilhas_json,
+                raw_pncp_json,
                 status_processamento,
                 created_at
             FROM editais
@@ -1066,23 +1173,66 @@ class Repository:
             cursor.execute(query, tuple(params))
             rows = cursor.fetchall()
             result = []
+            vistos = set()
             for r in rows:
+                num = r["numero_controle_pncp"]
+                vistos.add(num)
+                raw_dict = {}
+                if "raw_pncp_json" in r.keys() and r["raw_pncp_json"]:
+                    try:
+                        raw_dict = json.loads(r["raw_pncp_json"])
+                    except Exception:
+                        raw_dict = {}
+
                 result.append({
-                    "numero_controle_pncp": r["numero_controle_pncp"],
+                    "numero_controle_pncp": num,
                     "orgao": r["orgao"] or "Órgão Público",
                     "modalidade": r["modalidade"] or "Pregão Eletrônico",
                     "data_disputa": r["data_disputa"] or "A definir",
                     "portal_disputa": r["portal_disputa"] or "PNCP",
                     "objeto_resumo": r["objeto_resumo"] or "",
                     "valor_total_estimado": float(r["valor_total_estimado"] or 0.0),
-                    "score_aderencia": float(r["score_aderencia"] or 0.0),
+                    "score_aderencia": float(r["score_aderencia"]) if r["score_aderencia"] is not None else None,
                     "recomendacao_executiva": r["recomendacao_executiva"] or "",
                     "itens": json.loads(r["itens_json"]) if r["itens_json"] else [],
                     "exigencias": json.loads(r["exigencias_json"]) if r["exigencias_json"] else [],
                     "armadilhas": json.loads(r["armadilhas_json"]) if r["armadilhas_json"] else [],
-                    "status_processamento": r["status_processamento"],
+                    "status_processamento": r["status_processamento"] or "COLETADO",
+                    "raw": raw_dict,
                     "created_at": r["created_at"]
                 })
+
+            # Se o banco local tiver poucos itens e o Supabase estiver configurado, puxa da nuvem
+            if len(result) < limit and self.supabase.is_configured:
+                try:
+                    cloud_editais = self.supabase.listar_editais(limit=limit, busca=busca)
+                    if cloud_editais:
+                        for ce in cloud_editais:
+                            c_num = ce.get("numero_controle_pncp")
+                            if c_num and c_num not in vistos:
+                                vistos.add(c_num)
+                                # Insere localmente em espelho
+                                self.salvar_edital_coletado(ce)
+                                result.append({
+                                    "numero_controle_pncp": c_num,
+                                    "orgao": ce.get("orgao") or "Órgão Público",
+                                    "modalidade": ce.get("modalidade") or "Pregão Eletrônico",
+                                    "data_disputa": ce.get("data_disputa") or "A definir",
+                                    "portal_disputa": ce.get("portal_disputa") or "PNCP",
+                                    "objeto_resumo": ce.get("objeto_resumo") or "",
+                                    "valor_total_estimado": float(ce.get("valor_total_estimado") or 0.0),
+                                    "score_aderencia": float(ce.get("score_aderencia")) if ce.get("score_aderencia") is not None else None,
+                                    "recomendacao_executiva": ce.get("recomendacao_executiva") or "",
+                                    "itens": ce.get("itens_json") or [],
+                                    "exigencias": ce.get("exigencias_json") or [],
+                                    "armadilhas": ce.get("armadilhas_json") or [],
+                                    "status_processamento": ce.get("status_processamento") or "COLETADO",
+                                    "raw": ce.get("raw_pncp_json") or {},
+                                    "created_at": ce.get("created_at")
+                                })
+                except Exception as e_cloud:
+                    logger.warning(f"Erro ao complementar editais via Supabase: {e_cloud}")
+
             return result
 
     def obter_edital(self, numero_controle_pncp: str) -> Optional[Dict[str, Any]]:
