@@ -101,11 +101,13 @@ def _localizar_pdf_edital(pncp_id: str) -> Optional[Path]:
     
     # 1. Procurar na pasta específica do edital
     if pasta_edital.exists():
-        pdfs = list(pasta_edital.glob("*.pdf")) + list(pasta_edital.glob("**/*.pdf"))
+        raw_pdfs = list(pasta_edital.glob("*.pdf")) + list(pasta_edital.glob("**/*.pdf"))
+        # Ignora arquivos zipados
+        pdfs = [p for p in raw_pdfs if "zip" not in p.name.lower()] or raw_pdfs
         if pdfs:
             # Prioriza arquivo que contenha 'edital' no nome
             for p in pdfs:
-                if "edital" in p.name.lower():
+                if "edital" in p.name.lower() and "zip" not in p.name.lower():
                     return p
             return pdfs[0]
 
@@ -416,12 +418,29 @@ def listar_editais_salvos(filtro_texto: str = "", score_minimo: float = 0.0) -> 
         m = re.match(r'(\d{14})-\d+-0*(\d+)/(\d{4})', num_pncp)
         url_oficial = f"https://pncp.gov.br/app/editais/{m.group(1)}/{m.group(3)}/{int(m.group(2))}" if m else f"https://pncp.gov.br/app/editais?q={num_pncp}"
 
+        val_est = float(ed.get("valor_total_estimado") or 0.0)
+        if val_est <= 0:
+            raw_data = ed.get("raw") or {}
+            if isinstance(raw_data, dict):
+                val_est = float(
+                    raw_data.get("valor_total_estimado")
+                    or raw_data.get("valorTotalEstimado")
+                    or raw_data.get("valor_global")
+                    or raw_data.get("valorEstimado")
+                    or 0.0
+                )
+        if val_est <= 0 and ed.get("itens"):
+            val_est = sum(
+                float(it.get("valorTotal") or (float(it.get("valorUnitarioEstimado") or 0.0) * float(it.get("quantidade") or 1.0)) or 0.0)
+                for it in ed["itens"] if isinstance(it, dict)
+            )
+
         resultado.append({
             "numero_controle_pncp": num_pncp,
             "orgao": ed.get("orgao", "Órgão"),
             "modalidade": ed.get("modalidade", "Pregão Eletrônico"),
             "objeto_resumo": ed.get("objeto_resumo", ""),
-            "valor_total_estimado": float(ed.get("valor_total_estimado") or 0.0),
+            "valor_total_estimado": float(val_est or 0.0),
             "data_disputa": ed.get("data_disputa") or "A definir",
             "score_aderencia": score,
             "recomendacao_executiva": ed.get("recomendacao_executiva", ""),

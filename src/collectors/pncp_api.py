@@ -193,4 +193,24 @@ class PNCPClient:
                 return it
         return items[0] if items else None
 
+    def obter_orgao_por_cnpj(self, cnpj: str, timeout: float = 6.0) -> Optional[str]:
+        """
+        Consulta a Razão Social oficial do órgão licitante a partir do CNPJ no PNCP:
+        /orgaos/{cnpj}
+        """
+        cnpj_limpo = "".join(filter(str.isdigit, str(cnpj)))
+        if not cnpj_limpo:
+            return None
+        url = f"{self.BASE_URL_PNCP}/orgaos/{cnpj_limpo}"
+        try:
+            with httpx.Client(timeout=timeout, headers=self.headers) as client:
+                response = client.get(url)
+                if response.status_code == 200:
+                    d = response.json()
+                    return d.get("razaoSocial") or d.get("nomeRazaoSocial")
+                return None
+        except Exception as exc:
+            logger.warning(f"Aviso ao consultar orgao para CNPJ {cnpj_limpo}: {exc}")
+            return None
+
 

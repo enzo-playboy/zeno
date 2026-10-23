@@ -1,0 +1,13 @@
+{
+  "name": "zeno-radar",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Zeno Radar - Monitoramento e Inteligência em Licitações OaaS",
+  "scripts": {
+    "app": ".venv\\Scripts\\python.exe src/desktop/tray_app.py",
+    "dev": ".venv\\Scripts\\python.exe src/desktop/tray_app.py",
+    "dev:ui": "npm --prefix frontend run dev",
+    "build:ui": "npm --prefix frontend run build",
+    "build:installer": ".venv\\Scripts\\python.exe build_installer.py"
+  }
+}

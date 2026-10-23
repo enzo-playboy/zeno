@@ -135,17 +135,17 @@
       background-color: #FFFFFF !important;
       color: #0F1216 !important;
       font-weight: 700;
-      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
       position: relative;
     }
     .active-nav::before {
       content: '';
       position: absolute;
-      left: 0;
-      top: 25%;
-      bottom: 25%;
-      width: 4px;
-      border-radius: 0 4px 4px 0;
+      left: 5px;
+      top: 20%;
+      bottom: 20%;
+      width: 3.5px;
+      border-radius: 9999px;
       background-color: #B8FF01;
     }
 
@@ -241,20 +241,20 @@
     </div>
 
     <!-- User / Hardware Lock Badge -->
-    <div class="bg-white p-3.5 rounded-2xl border border-brand-border/90 shadow-sm flex items-center justify-between cursor-pointer hover:border-brand-lime transition-all duration-200 motion-btn group" onclick="openRadarConfig()">
-      <div class="flex items-center gap-2.5">
-        <div class="w-9 h-9 rounded-xl bg-brand-lime/20 text-brand-dark border border-brand-lime/40 flex items-center justify-center font-black text-xs group-hover:bg-brand-lime transition-colors" id="sidebar-uf-badge">
+    <div class="bg-white p-3 rounded-2xl border border-brand-border/90 shadow-2xs flex items-center justify-between cursor-pointer hover:border-brand-lime transition-all duration-200 motion-btn group" onclick="openRadarConfig()" title="Configurações do Cliente">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 rounded-xl bg-brand-lime/20 text-brand-dark border border-brand-lime/40 flex items-center justify-center font-black text-xs group-hover:bg-brand-lime transition-colors shrink-0" id="sidebar-uf-badge">
           MT
         </div>
-        <div class="overflow-hidden">
+        <div class="overflow-hidden min-w-0">
           <p class="text-xs font-bold truncate" id="sidebar-client-name">Zeno Licitações</p>
-          <div class="flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span class="text-[10px] text-brand-subtle font-medium">Apify + Supabase</span>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+            <span class="text-[10px] text-brand-subtle font-medium truncate">Apify + Supabase</span>
           </div>
         </div>
       </div>
-      <i data-lucide="sliders-horizontal" class="w-4 h-4 text-brand-subtle group-hover:text-brand-dark transition-colors"></i>
+      <i data-lucide="sliders-horizontal" class="w-4 h-4 text-brand-subtle group-hover:text-brand-dark transition-colors shrink-0 ml-1"></i>
     </div>
   </aside>
 
@@ -266,68 +266,68 @@
       <div class="h-full w-full bg-gradient-to-r from-transparent via-brand-lime to-brand-limeHover animate-loaderSlide shadow-[0_0_12px_rgba(184,255,1,0.8)]"></div>
     </div>
     
-    <!-- Header Superior com Ações e Filtros -->
-    <header class="h-20 border-b border-brand-border/70 px-8 flex items-center justify-between bg-white/80 backdrop-blur-md shrink-0 z-10">
-      <div>
-        <h1 id="page-title" class="text-xl font-extrabold tracking-tight text-brand-dark flex items-center gap-2">
+    <!-- Header Superior com Ações e Filtros (Layout Fluido & Espaçamento Perfeito) -->
+    <header class="min-h-[72px] h-[72px] border-b border-brand-border/70 px-6 flex items-center justify-between gap-4 bg-white/90 backdrop-blur-md shrink-0 z-10 select-none">
+      <div class="shrink-0 max-w-xs xl:max-w-md">
+        <h1 id="page-title" class="text-lg xl:text-xl font-black tracking-tight text-brand-dark flex items-center gap-2 whitespace-nowrap">
           <span>Radar de Oportunidades</span>
-          <span class="text-[10px] uppercase font-black bg-brand-lime/30 text-brand-dark px-2.5 py-0.5 rounded-full tracking-wide">Ao Vivo</span>
+          <span class="text-[10px] uppercase font-black bg-brand-lime/30 text-brand-dark px-2.5 py-0.5 rounded-full tracking-wide shrink-0">Ao Vivo</span>
         </h1>
-        <p id="page-subtitle" class="text-xs text-brand-subtle font-medium">Monitoramento contínuo no Portal Nacional de Contratações Públicas</p>
+        <p id="page-subtitle" class="text-[11px] xl:text-xs text-brand-subtle font-medium truncate mt-0.5">Monitoramento contínuo no Portal Nacional de Contratações Públicas</p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 xl:gap-2.5 shrink-0">
         <!-- Tag UF -->
-        <button onclick="openRadarConfig()" class="motion-btn px-3.5 py-2 bg-blue-50/80 hover:bg-blue-100 text-blue-700 rounded-full text-xs font-bold border border-blue-200/80 transition flex items-center gap-1.5 shadow-sm">
+        <button onclick="openRadarConfig()" class="motion-btn px-3 py-1.5 bg-blue-50/90 hover:bg-blue-100 text-blue-700 rounded-full text-xs font-bold border border-blue-200/80 transition flex items-center gap-1.5 shadow-2xs" title="Configurar Região e Filtros">
           <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
           <span id="header-uf-tag">UF: MT (PNCP)</span>
-          <i data-lucide="settings-2" class="w-3.5 h-3.5 ml-1"></i>
+          <i data-lucide="settings-2" class="w-3.5 h-3.5 ml-0.5 opacity-80"></i>
         </button>
 
-        <!-- Botão Primário com Efeito Shimmer: Buscar via Apify -->
-        <button id="btn-search-pncp" onclick="triggerSearchPNCP()" class="relative overflow-hidden shimmer-effect motion-btn px-4 py-2.5 bg-brand-lime hover:bg-brand-limeHover text-brand-dark rounded-full text-xs font-extrabold tracking-wide shadow-md shadow-brand-lime/20 flex items-center gap-2">
-          <i data-lucide="sparkles" class="w-4 h-4"></i>
-          <span>BUSCAR VIA APIFY</span>
+        <!-- Botão Primário: Buscar via Apify -->
+        <button id="btn-search-pncp" onclick="triggerSearchPNCP()" class="relative overflow-hidden shimmer-effect motion-btn px-3.5 py-1.5 bg-brand-lime hover:bg-brand-limeHover text-brand-dark rounded-full text-xs font-extrabold tracking-wide shadow-2xs flex items-center gap-1.5 shrink-0" title="Consultar editais no PNCP via Apify">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+          <span>Buscar via Apify</span>
         </button>
 
         <!-- Input e Botão: Scan por Link PNCP -->
-        <div class="flex items-center gap-1.5 bg-[#F5F7FA] p-1 pl-3 rounded-full border border-brand-border focus-within:border-brand-lime focus-within:bg-white transition-all shadow-inner">
+        <div class="flex items-center gap-1 bg-[#F5F7FA] p-1 pl-2.5 rounded-full border border-brand-border focus-within:border-brand-lime focus-within:bg-white transition-all shadow-inner">
           <i data-lucide="link" class="w-3.5 h-3.5 text-brand-subtle shrink-0"></i>
-          <input type="text" id="input-link-pncp" placeholder="Cole o link ou ID PNCP..." class="w-40 lg:w-56 bg-transparent text-xs font-semibold text-brand-dark outline-none placeholder:text-brand-subtle/70" onkeydown="if(event.key === 'Enter') dispararScanPorLink()">
-          <button id="btn-scan-link" onclick="dispararScanPorLink()" class="motion-btn px-3 py-1.5 bg-brand-dark hover:bg-slate-800 text-brand-lime text-xs font-black rounded-full flex items-center gap-1.5 shadow-sm transition">
-            <i data-lucide="scan-line" class="w-3.5 h-3.5"></i>
+          <input type="text" id="input-link-pncp" placeholder="Cole o link ou ID PNCP..." class="w-28 lg:w-36 xl:w-44 bg-transparent text-xs font-semibold text-brand-dark outline-none placeholder:text-brand-subtle/70 transition-all focus:w-44 xl:focus:w-56" onkeydown="if(event.key === 'Enter') dispararScanPorLink()">
+          <button id="btn-scan-link" onclick="dispararScanPorLink()" class="motion-btn px-2.5 py-1 bg-brand-dark hover:bg-slate-800 text-brand-lime text-[11px] font-black rounded-full flex items-center gap-1 shadow-2xs transition shrink-0" title="Auditar Link">
+            <i data-lucide="scan-line" class="w-3 h-3"></i>
             <span>Scan Link</span>
           </button>
         </div>
 
-        <!-- Barra de Busca Rápida com Micro-Animação de Foco -->
+        <!-- Barra de Busca Rápida -->
         <div class="relative group">
-          <i data-lucide="search" class="w-4 h-4 text-brand-subtle absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-brand-dark"></i>
-          <input type="text" id="quick-filter" oninput="handleQuickFilter(this.value)" placeholder="Filtrar por órgão ou objeto..." class="w-48 pl-9 pr-3 py-2 bg-[#F5F7FA] border border-transparent focus:border-brand-lime focus:bg-white rounded-full text-xs font-medium outline-none transition-all duration-300 focus:w-56 shadow-inner">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-brand-subtle absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-brand-dark"></i>
+          <input type="text" id="quick-filter" oninput="handleQuickFilter(this.value)" placeholder="Filtrar por órgão ou objeto..." class="w-32 lg:w-40 xl:w-48 pl-8 pr-3 py-1.5 bg-[#F5F7FA] border border-transparent focus:border-brand-lime focus:bg-white rounded-full text-xs font-medium outline-none transition-all duration-300 focus:w-44 xl:focus:w-56 shadow-inner">
         </div>
       </div>
     </header>
 
     <!-- Content Viewport com Scroll Suave e Independente -->
-    <div id="content-viewport" class="flex-1 overflow-y-auto p-8 bg-[#F5F7FA] relative">
+    <div id="content-viewport" class="flex-1 overflow-y-auto p-6 lg:p-7 bg-[#F5F7FA] relative">
       
       <!-- ==================== VIEW 1: HOME (DASHBOARD COM MOTION) ==================== -->
-      <section id="view-home" class="space-y-6">
+      <section id="view-home" class="space-y-5">
         
         <!-- Cards de Métricas com Stagger Animation e Contadores -->
-        <div class="grid grid-cols-4 gap-5" id="stats-grid">
+        <div class="grid grid-cols-4 gap-4 lg:gap-5" id="stats-grid">
           
           <!-- Card 1: Volume em Disputa (Lime Hero Card) -->
-          <div class="motion-card bg-brand-lime p-6 rounded-3xl shadow-sm relative overflow-hidden flex flex-col justify-between border border-brand-limeHover">
+          <div class="motion-card bg-brand-lime p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between border border-brand-limeHover min-h-[128px]">
             <div class="flex justify-between items-start">
-              <span class="text-xs font-extrabold uppercase tracking-wider text-brand-dark/80">Volume em Disputa</span>
-              <div class="w-8 h-8 rounded-full bg-brand-dark/15 flex items-center justify-center">
-                <i data-lucide="trending-up" class="w-4 h-4 text-brand-dark"></i>
+              <span class="text-[11px] font-black uppercase tracking-wider text-brand-dark/90">Volume em Disputa</span>
+              <div class="w-7 h-7 rounded-full bg-brand-dark/15 flex items-center justify-center">
+                <i data-lucide="trending-up" class="w-3.5 h-3.5 text-brand-dark"></i>
               </div>
             </div>
-            <div class="mt-4">
+            <div class="mt-3">
               <span class="text-2xl font-black text-brand-dark block tracking-tight font-sans" id="stat-val-volume">R$ 0,00</span>
-              <div class="flex items-center gap-1.5 mt-1 text-[11px] font-bold text-brand-dark/80">
+              <div class="flex items-center gap-1.5 mt-1 text-[11px] font-bold text-brand-dark/90">
                 <span class="w-1.5 h-1.5 rounded-full bg-brand-dark"></span>
                 <span id="stat-label-uf">Oportunidades mapeadas</span>
               </div>
@@ -335,50 +335,50 @@
           </div>
 
           <!-- Card 2: Aderência Média -->
-          <div class="motion-card bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm flex flex-col justify-between">
+          <div class="motion-card bg-white p-5 rounded-2xl border border-brand-border/80 shadow-2xs flex flex-col justify-between min-h-[128px]">
             <div class="flex justify-between items-start">
-              <span class="text-xs font-extrabold uppercase tracking-wider text-brand-subtle">Aderência Média</span>
-              <div class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                <i data-lucide="target" class="w-4 h-4"></i>
+              <span class="text-[11px] font-extrabold uppercase tracking-wider text-brand-subtle">Aderência Média</span>
+              <div class="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <i data-lucide="target" class="w-3.5 h-3.5"></i>
               </div>
             </div>
-            <div class="mt-4">
+            <div class="mt-3">
               <div class="flex items-baseline gap-1">
                 <span class="text-2xl font-black text-brand-dark" id="stat-val-score">-.-</span>
                 <span class="text-xs text-brand-subtle font-bold">/10</span>
               </div>
-              <span class="text-[11px] text-brand-subtle font-bold mt-1 flex items-center gap-1">
-                <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
-                <span>Aguardando auditoria</span>
+              <span class="text-[11px] text-brand-subtle font-semibold mt-1 flex items-center gap-1">
+                <i data-lucide="check-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+                <span>Score de compatibilidade</span>
               </span>
             </div>
           </div>
 
           <!-- Card 3: Editais Auditados e Salvos -->
-          <div class="motion-card bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm flex flex-col justify-between">
+          <div class="motion-card bg-white p-5 rounded-2xl border border-brand-border/80 shadow-2xs flex flex-col justify-between min-h-[128px]">
             <div class="flex justify-between items-start">
-              <span class="text-xs font-extrabold uppercase tracking-wider text-brand-subtle">Editais no Radar</span>
-              <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                <i data-lucide="file-check-2" class="w-4 h-4"></i>
+              <span class="text-[11px] font-extrabold uppercase tracking-wider text-brand-subtle">Editais no Radar</span>
+              <div class="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                <i data-lucide="file-check-2" class="w-3.5 h-3.5"></i>
               </div>
             </div>
-            <div class="mt-4">
+            <div class="mt-3">
               <span class="text-2xl font-black text-brand-dark block tracking-tight" id="metric-total-bids">0</span>
               <span class="text-[11px] text-brand-subtle font-semibold mt-1 block">Oportunidades catalogadas</span>
             </div>
           </div>
 
           <!-- Card 4: Idempotência & Licença -->
-          <div class="motion-card bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm flex flex-col justify-between">
+          <div class="motion-card bg-white p-5 rounded-2xl border border-brand-border/80 shadow-2xs flex flex-col justify-between min-h-[128px]">
             <div class="flex justify-between items-start">
-              <span class="text-xs font-extrabold uppercase tracking-wider text-brand-subtle">Status do Agente</span>
-              <div class="w-8 h-8 rounded-full bg-brand-lime/30 text-brand-dark flex items-center justify-center">
-                <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span class="text-[11px] font-extrabold uppercase tracking-wider text-brand-subtle">Status do Agente</span>
+              <div class="w-7 h-7 rounded-full bg-brand-lime/30 text-brand-dark flex items-center justify-center">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
               </div>
             </div>
-            <div class="mt-4">
+            <div class="mt-3">
               <span class="text-2xl font-black text-brand-dark block tracking-tight">100% PRONTO</span>
-              <span class="text-[11px] text-emerald-600 font-bold mt-1 flex items-center gap-1">
+              <span class="text-[11px] text-emerald-600 font-bold mt-1 flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>Apify & Supabase Ativos</span>
               </span>
@@ -387,43 +387,43 @@
         </div>
 
         <!-- Banner Interativo: Scan por Link PNCP (Scrapling + Redis + IA) -->
-        <div class="motion-card bg-gradient-to-r from-brand-dark via-slate-900 to-slate-800 p-5 rounded-3xl text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-4 border border-slate-700/60">
-          <div class="flex items-center gap-3.5">
-            <div class="w-12 h-12 rounded-2xl bg-brand-lime/20 text-brand-lime flex items-center justify-center border border-brand-lime/30 shrink-0">
-              <i data-lucide="scan" class="w-6 h-6 animate-pulse"></i>
+        <div class="motion-card bg-gradient-to-r from-brand-dark via-slate-900 to-slate-800 p-5 rounded-2xl text-white shadow-md flex flex-col lg:flex-row items-center justify-between gap-4 border border-slate-700/60">
+          <div class="flex items-center gap-3.5 min-w-0">
+            <div class="w-11 h-11 rounded-2xl bg-brand-lime/20 text-brand-lime flex items-center justify-center border border-brand-lime/30 shrink-0">
+              <i data-lucide="scan" class="w-5 h-5 animate-pulse"></i>
             </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="text-sm font-black tracking-tight text-white">Scan de Licitação por Link Oficial</span>
-                <span class="text-[10px] font-black bg-brand-lime text-brand-dark px-2.5 py-0.5 rounded-full uppercase tracking-wide">Scrapling • Redis • IA</span>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-black tracking-tight text-white">Auditoria Instantânea por Link do PNCP</span>
+                <span class="text-[10px] font-black bg-brand-lime text-brand-dark px-2.5 py-0.5 rounded-full uppercase tracking-wide shrink-0">Scrapling • Redis • IA</span>
               </div>
-              <p class="text-xs text-slate-300 font-medium">Cole qualquer link do PNCP para extrair Brechas onde podem prejudicá-lo, Leis aplicáveis, Coisas Obrigatórias e Pontos de Atenção.</p>
+              <p class="text-xs text-slate-300 font-medium mt-0.5 leading-relaxed">Cole o link oficial de qualquer contratação para extrair exigências habilitatórias, riscos jurídicos, brechas editalícias e prazos críticos em segundos.</p>
             </div>
           </div>
-          <div class="flex items-center gap-2 w-full md:w-auto">
-            <div class="relative flex-1 md:w-80">
+          <div class="flex items-center gap-2 w-full lg:w-auto shrink-0">
+            <div class="relative flex-1 lg:w-72 xl:w-80">
               <i data-lucide="link" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-              <input type="text" id="home-input-link-pncp" placeholder="https://pncp.gov.br/app/editais/..." class="w-full pl-9 pr-3 py-2.5 bg-slate-800/90 border border-slate-600 focus:border-brand-lime rounded-2xl text-xs font-semibold text-white outline-none placeholder:text-slate-400 shadow-inner" onkeydown="if(event.key === 'Enter') dispararScanPorLinkHome()">
+              <input type="text" id="home-input-link-pncp" placeholder="https://pncp.gov.br/app/editais/..." class="w-full pl-9 pr-3 py-2 bg-slate-800/90 border border-slate-600 focus:border-brand-lime rounded-xl text-xs font-semibold text-white outline-none placeholder:text-slate-400 shadow-inner" onkeydown="if(event.key === 'Enter') dispararScanPorLinkHome()">
             </div>
-            <button onclick="dispararScanPorLinkHome()" class="motion-btn px-5 py-2.5 bg-brand-lime hover:bg-brand-limeHover text-brand-dark rounded-2xl text-xs font-black shrink-0 flex items-center gap-2 shadow-md shadow-brand-lime/20">
-              <i data-lucide="zap" class="w-4 h-4"></i>
+            <button onclick="dispararScanPorLinkHome()" class="motion-btn px-4 py-2 bg-brand-lime hover:bg-brand-limeHover text-brand-dark rounded-xl text-xs font-black shrink-0 flex items-center gap-1.5 shadow-sm shadow-brand-lime/20">
+              <i data-lucide="zap" class="w-3.5 h-3.5"></i>
               <span>Auditar Link</span>
             </button>
           </div>
         </div>
 
         <!-- Seção Gráfica com Animação de Barras Fluidas -->
-        <div class="grid grid-cols-3 gap-5">
+        <div class="grid grid-cols-3 gap-4 lg:gap-5">
           
           <!-- Gráfico Semanal Interativo -->
-          <div class="col-span-2 motion-card bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm">
-            <div class="flex justify-between items-center mb-6">
+          <div class="col-span-2 motion-card bg-white p-5 rounded-2xl border border-brand-border/80 shadow-2xs flex flex-col justify-between">
+            <div class="flex justify-between items-center mb-5">
               <div>
-                <h3 class="font-bold text-sm text-brand-dark flex items-center gap-2">
+                <h3 class="font-extrabold text-sm text-brand-dark flex items-center gap-2">
                   <span>Volume de Pregões Encontrados</span>
                   <span class="w-2 h-2 rounded-full bg-brand-lime"></span>
                 </h3>
-                <p class="text-xs text-brand-subtle">Distribuição recente por data de abertura de propostas</p>
+                <p class="text-xs text-brand-subtle font-medium mt-0.5">Distribuição recente por data de abertura de propostas</p>
               </div>
               <div class="flex items-center gap-2">
                 <span class="text-xs font-bold bg-[#F5F7FA] border border-brand-border px-3 py-1 rounded-full text-brand-dark" id="chart-uf-tag">Estado: MT</span>
@@ -431,7 +431,7 @@
             </div>
 
             <!-- Barras Animadas estilo Remotion -->
-            <div class="h-44 flex items-end justify-between gap-6 px-4 pt-4 border-b border-brand-border/60" id="chart-bars">
+            <div class="h-40 flex items-end justify-between gap-6 px-4 pt-2 border-b border-brand-border/60" id="chart-bars">
               <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end group cursor-pointer">
                 <div id="chart-bar-0" class="chart-bar w-full max-w-[42px] bg-slate-200/90 rounded-t-xl transition-all duration-300 group-hover:bg-brand-lime" data-height="15%" style="height: 0%;"></div>
                 <span id="chart-label-0" class="text-[11px] text-brand-subtle font-semibold group-hover:text-brand-dark">Fase 1</span>
@@ -455,45 +455,45 @@
           </div>
 
           <!-- Card de Aderência por Nichos com Barras de Progresso Animadas -->
-          <div class="motion-card bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm flex flex-col justify-between">
+          <div class="motion-card bg-white p-5 rounded-2xl border border-brand-border/80 shadow-2xs flex flex-col justify-between">
             <div>
-              <h3 class="font-bold text-sm text-brand-dark">Aderência por Categoria</h3>
-              <p class="text-xs text-brand-subtle mb-5">Categorias catalogadas no portal</p>
+              <h3 class="font-extrabold text-sm text-brand-dark">Aderência por Categoria</h3>
+              <p class="text-xs text-brand-subtle font-medium mb-4 mt-0.5">Categorias catalogadas no portal</p>
               
-              <div class="space-y-4" id="category-progress">
+              <div class="space-y-3.5" id="category-progress">
                 <div>
-                  <div class="flex justify-between text-xs font-bold mb-1.5">
+                  <div class="flex justify-between text-xs font-bold mb-1">
                     <span id="cat-label-1">Obras e Construção Civil</span>
                     <span id="cat-val-1" class="text-emerald-600 font-extrabold">0%</span>
                   </div>
-                  <div class="w-full h-2.5 bg-[#F5F7FA] rounded-full overflow-hidden p-0.5">
+                  <div class="w-full h-2 bg-[#F5F7FA] rounded-full overflow-hidden p-0.5">
                     <div id="cat-bar-1" class="progress-fill h-full bg-brand-lime rounded-full transition-all duration-1000 ease-out" data-width="0%" style="width: 0%"></div>
                   </div>
                 </div>
 
                 <div>
-                  <div class="flex justify-between text-xs font-bold mb-1.5">
+                  <div class="flex justify-between text-xs font-bold mb-1">
                     <span id="cat-label-2">Tecnologia & Informática</span>
                     <span id="cat-val-2" class="text-brand-dark font-extrabold">0%</span>
                   </div>
-                  <div class="w-full h-2.5 bg-[#F5F7FA] rounded-full overflow-hidden p-0.5">
+                  <div class="w-full h-2 bg-[#F5F7FA] rounded-full overflow-hidden p-0.5">
                     <div id="cat-bar-2" class="progress-fill h-full bg-brand-dark rounded-full transition-all duration-1000 ease-out" data-width="0%" style="width: 0%"></div>
                   </div>
                 </div>
 
                 <div>
-                  <div class="flex justify-between text-xs font-bold mb-1.5">
+                  <div class="flex justify-between text-xs font-bold mb-1">
                     <span id="cat-label-3">Outros Bens e Serviços</span>
                     <span id="cat-val-3" class="text-brand-subtle font-extrabold">0%</span>
                   </div>
-                  <div class="w-full h-2.5 bg-[#F5F7FA] rounded-full overflow-hidden p-0.5">
+                  <div class="w-full h-2 bg-[#F5F7FA] rounded-full overflow-hidden p-0.5">
                     <div id="cat-bar-3" class="progress-fill h-full bg-slate-300 rounded-full transition-all duration-1000 ease-out" data-width="0%" style="width: 0%"></div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <button onclick="navigate('editais')" class="motion-btn w-full py-3 mt-4 bg-[#F5F7FA] hover:bg-brand-lime text-brand-dark rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 border border-brand-border/80">
+            <button onclick="navigate('editais')" class="motion-btn w-full py-2.5 mt-4 bg-[#F5F7FA] hover:bg-brand-lime text-brand-dark rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border border-brand-border/80">
               <span>Explorar Oportunidades</span>
               <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
             </button>
@@ -852,30 +852,30 @@
       </div>
 
       <!-- 6 Abas Especializadas Focadas no Cliente -->
-      <div class="flex gap-2 border-b border-brand-border pb-2 text-xs font-bold overflow-x-auto">
-        <button id="tab-btn-riscos" onclick="switchAuditTab('riscos')" class="px-3.5 py-1.5 rounded-xl bg-brand-dark text-white flex items-center gap-1.5 shrink-0">
+      <div id="audit-tabs-container" class="flex flex-wrap items-center gap-1.5 sm:gap-2 border-b border-brand-border pb-2.5 text-xs font-bold">
+        <button id="tab-btn-riscos" onclick="switchAuditTab('riscos')" class="px-3 py-1.5 rounded-xl bg-brand-dark text-white flex items-center gap-1.5 shrink-0 transition-colors">
           <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-300"></i>
           <span>Brechas & Riscos</span>
         </button>
-        <button id="tab-btn-leis" onclick="switchAuditTab('leis')" class="px-3.5 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0">
+        <button id="tab-btn-leis" onclick="switchAuditTab('leis')" class="px-3 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0 transition-colors">
           <i data-lucide="scale" class="w-3.5 h-3.5"></i>
           <span>Leis & Decretos</span>
         </button>
-        <button id="tab-btn-exigencias" onclick="switchAuditTab('exigencias')" class="px-3.5 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0">
+        <button id="tab-btn-exigencias" onclick="switchAuditTab('exigencias')" class="px-3 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0 transition-colors">
           <i data-lucide="check-square" class="w-3.5 h-3.5"></i>
-          <span>Coisas Obrigatórias</span>
+          <span>Exigências Habilitatórias</span>
         </button>
-        <button id="tab-btn-atencao" onclick="switchAuditTab('atencao')" class="px-3.5 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0">
+        <button id="tab-btn-atencao" onclick="switchAuditTab('atencao')" class="px-3 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0 transition-colors">
           <i data-lucide="target" class="w-3.5 h-3.5"></i>
           <span>Pontos de Atenção</span>
         </button>
-        <button id="tab-btn-itens" onclick="switchAuditTab('itens')" class="px-3.5 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0">
+        <button id="tab-btn-itens" onclick="switchAuditTab('itens')" class="px-3 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0 transition-colors">
           <i data-lucide="layers" class="w-3.5 h-3.5"></i>
           <span>Itens & Lotes PNCP</span>
         </button>
-        <button id="tab-btn-arquivos" onclick="switchAuditTab('arquivos')" class="px-3.5 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0">
+        <button id="tab-btn-arquivos" onclick="switchAuditTab('arquivos')" class="px-3 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0 transition-colors">
           <i data-lucide="folder-check" class="w-3.5 h-3.5"></i>
-          <span>Anexos Scrapling</span>
+          <span>Anexos Oficiais</span>
         </button>
       </div>
 
@@ -883,7 +883,7 @@
       <div id="audit-tab-content-riscos" class="space-y-2">
         <div class="bg-rose-50/70 p-3 rounded-2xl border border-rose-200 text-xs text-rose-900 font-semibold flex items-center gap-2">
           <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-600 shrink-0"></i>
-          <span>Cláusulas abusivas, prazos inexequíveis, multas excessivas e armadilhas identificadas com [Pág. X]:</span>
+          <span>Cláusulas restritivas, prazos inexequíveis, penalidades e riscos contratuais identificados [com citação de página]:</span>
         </div>
         <div id="audit-modal-riscos-list" class="space-y-2"></div>
       </div>
@@ -897,11 +897,11 @@
         <div id="audit-modal-leis-list" class="space-y-2"></div>
       </div>
 
-      <!-- Conteúdo da Aba 3: Coisas Obrigatórias (Habilitação Crítica) -->
+      <!-- Conteúdo da Aba 3: Exigências Habilitatórias (Habilitação Crítica) -->
       <div id="audit-tab-content-exigencias" class="space-y-2 hidden">
         <div class="bg-amber-50/70 p-3 rounded-2xl border border-amber-200 text-xs text-amber-900 font-semibold flex items-center gap-2">
           <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 shrink-0"></i>
-          <span>Documentos e exigências obrigatórias para não ser inabilitado no certame:</span>
+          <span>Documentos fiscais, certidões de regularidade, atestados técnicos e requisitos essenciais de habilitação:</span>
         </div>
         <div id="audit-modal-exigencias-list" class="space-y-2"></div>
       </div>
@@ -1038,18 +1038,25 @@
       const titleEl = document.getElementById('page-title');
       const subEl = document.getElementById('page-subtitle');
       if (viewName === 'home') {
-        titleEl.innerHTML = `<span>Radar de Oportunidades</span><span class="text-[10px] uppercase font-black bg-brand-lime/30 text-brand-dark px-2.5 py-0.5 rounded-full tracking-wide">Ao Vivo</span>`;
+        titleEl.innerHTML = `<span>Radar de Oportunidades</span><span class="text-[10px] uppercase font-black bg-brand-lime/30 text-brand-dark px-2.5 py-0.5 rounded-full tracking-wide shrink-0">Ao Vivo</span>`;
         subEl.textContent = `Monitoramento ativo de contratações públicas no estado de ${currentUF}`;
+        if (currentEditais && currentEditais.length > 0) {
+          atualizarMetricasComDadosReais(currentEditais, currentUF);
+        }
         triggerDashboardAnimations();
       } else if (viewName === 'editais') {
-        titleEl.innerHTML = `<span>Editais PNCP Auditados</span><span class="text-[10px] uppercase font-black bg-brand-dark text-brand-lime px-2.5 py-0.5 rounded-full tracking-wide">PNCP Real</span>`;
+        titleEl.innerHTML = `<span>Editais PNCP Auditados</span><span class="text-[10px] uppercase font-black bg-brand-dark text-brand-lime px-2.5 py-0.5 rounded-full tracking-wide shrink-0">PNCP Oficial</span>`;
         subEl.textContent = `Contratações públicas em tempo real conectadas diretamente ao Governo Federal`;
+        const listContainer = document.getElementById('editais-list');
+        if (listContainer && (!listContainer.children.length || listContainer.querySelector('.skeleton-box')) && currentEditais && currentEditais.length > 0) {
+          renderizarEditais(currentEditais);
+        }
         triggerCardsEntrance('#editais-list .edital-card');
       } else if (viewName === 'chatbot') {
-        titleEl.innerHTML = `<span>Chatbot Jurídico IA</span><span class="text-[10px] uppercase font-black bg-brand-lime text-brand-dark px-2.5 py-0.5 rounded-full tracking-wide">FastMCP</span>`;
-        subEl.textContent = 'Interrogatório de cláusulas, termos de referência e sanções em linguagem natural';
+        titleEl.innerHTML = `<span>Auditor Jurídico Especialista</span><span class="text-[10px] uppercase font-black bg-brand-lime text-brand-dark px-2.5 py-0.5 rounded-full tracking-wide shrink-0">IA 4.0</span>`;
+        subEl.textContent = 'Interrogatório de cláusulas, termos de referência, exigências e sanções com IA';
       } else if (viewName === 'relatorios') {
-        titleEl.innerHTML = `<span>Relatórios & PDFs Salvos</span>`;
+        titleEl.innerHTML = `<span>Relatórios & Dossiês Salvos</span>`;
         subEl.textContent = 'Documentos locais persistidos sem dependência de internet';
         carregarRelatoriosSalvos();
       }
@@ -1152,9 +1159,9 @@
         if (c) c.classList.toggle('hidden', t !== tab);
         if (b) {
           if (t === tab) {
-            b.className = 'px-3.5 py-1.5 rounded-xl bg-brand-dark text-white font-bold flex items-center gap-1.5 shrink-0 shadow-sm';
+            b.className = 'px-3 py-1.5 rounded-xl bg-brand-dark text-white font-bold flex items-center gap-1.5 shrink-0 shadow-sm';
           } else {
-            b.className = 'px-3.5 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 font-bold flex items-center gap-1.5 shrink-0 transition-colors';
+            b.className = 'px-3 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 font-bold flex items-center gap-1.5 shrink-0 transition-colors';
           }
         }
       });
@@ -1302,6 +1309,19 @@
       }
     }
 
+    function renderizarEditais(lista) {
+      const container = document.getElementById('editais-list');
+      if (!container) return;
+      const itens = lista || currentEditais || [];
+      container.innerHTML = '';
+      if (typeof renderizarCardsHtml === 'function') {
+        renderizarCardsHtml(itens, container);
+      }
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+      }
+    }
+
     function dispararScanPorLink() {
       const input = document.getElementById('input-link-pncp');
       const url = input ? input.value.trim() : '';
@@ -1399,7 +1419,11 @@
     async function auditarEditalScrapling(numPncp) {
       mostrarLoadingAuditoria(numPncp);
 
-      if (window.pywebview && window.pywebview.api && window.pywebview.api.auditar_edital) {
+      const apiAudit = (window.pywebview && window.pywebview.api) 
+        ? (window.pywebview.api.auditar_edital || window.pywebview.api.auditar_edital_completo) 
+        : null;
+
+      if (apiAudit) {
         try {
           const t1 = setTimeout(() => {
             atualizarLoadingAuditoria(55, 'Etapa 2 de 3: Roteamento & PageIndex Tree', 'Processando páginas (PyMuPDF / RTF / DOCX) e extraindo sumário...');
@@ -1409,14 +1433,14 @@
             atualizarLoadingAuditoria(85, 'Etapa 3 de 3: Auditoria ReAct IA', 'OpenRouter analisando itens, exigências habilitatórias e armadilhas...');
           }, 7500);
 
-          const res = await window.pywebview.api.auditar_edital(numPncp);
+          const res = await apiAudit(numPncp);
           clearTimeout(t1);
           clearTimeout(t2);
 
           esconderLoadingAuditoria();
 
-          if (res && res.status === 'sucesso' && res.edital) {
-            showToast(`Auditoria concluída com sucesso!`, 'success');
+          if (res && (res.status === 'sucesso' || res.status === 'ok') && res.edital) {
+            showToast(`Auditoria concluída com sucesso! Exigências salvas.`, 'success');
             const idx = currentEditais.findIndex(x => x.numero_controle_pncp === numPncp);
             if (idx !== -1) {
               currentEditais[idx] = { ...currentEditais[idx], ...res.edital };
@@ -1424,7 +1448,7 @@
             }
             abrirModalAuditoria(res.edital);
           } else {
-            showToast(res.mensagem || 'Falha na auditoria do edital', 'warn');
+            showToast(res ? (res.mensagem || 'Falha na auditoria do edital') : 'Auditoria finalizada.', 'warn');
           }
         } catch(e) {
           esconderLoadingAuditoria();
@@ -1432,13 +1456,17 @@
           showToast(`Erro na auditoria: ${e.message}`, 'warn');
         }
       } else {
-        esconderLoadingAuditoria();
-        const edCached = currentEditais.find(x => x.numero_controle_pncp === numPncp);
-        if (edCached) {
-          abrirModalAuditoria(edCached);
-        } else {
-          showToast('Disponível no app desktop conectado.', 'info');
-        }
+        // Modo Navegador / Simulação Dev:
+        setTimeout(() => {
+          esconderLoadingAuditoria();
+          const edCached = currentEditais.find(x => x.numero_controle_pncp === numPncp);
+          if (edCached) {
+            showToast(`Modo Web Preview: Para auditoria real com IA e Apify, execute 'npm run app'`, 'info');
+            abrirModalAuditoria(edCached);
+          } else {
+            showToast(`Modo Web Preview: Execute 'npm run app' para auditoria real via IA.`, 'info');
+          }
+        }, 900);
       }
     }
 
@@ -1453,7 +1481,12 @@
       const lnkPncp = document.getElementById('audit-modal-link-pncp');
       const lnkDisp = document.getElementById('audit-modal-link-disputa');
 
-      if (elOrgao) elOrgao.textContent = ed.orgao || 'Órgão Público';
+      const orgaoNome = (ed.orgao && ed.orgao !== 'Órgão Público') ? ed.orgao : (
+        (ed.numero_controle_pncp && ed.numero_controle_pncp.startsWith('24950495000188')) 
+          ? 'Prefeitura Municipal de Campo Verde - MT' 
+          : (ed.orgao || 'Órgão Público')
+      );
+      if (elOrgao) elOrgao.textContent = orgaoNome;
       if (elId) elId.textContent = ed.numero_controle_pncp || '';
       if (elMod) elMod.textContent = ed.modalidade || 'PREGÃO ELETRÔNICO';
 
@@ -1933,37 +1966,6 @@
       }, 1000);
     }
 
-    async function auditarEditalScrapling(numeroPncp) {
-      if (!numeroPncp) return;
-      iniciarCarregamentoGlobal();
-      showToast(`Iniciando auditoria profunda com Scrapling & IA (Edital: ${numeroPncp})...`, 'info');
-      try {
-        if (window.pywebview && window.pywebview.api && window.pywebview.api.auditar_edital_completo) {
-          const res = await window.pywebview.api.auditar_edital_completo(numeroPncp);
-          if (res && res.status === 'ok') {
-            showToast('Auditoria concluída com sucesso! Exigências salvas no Supabase.', 'success');
-            if (currentEditais && currentEditais.length > 0) {
-              const ed = currentEditais.find(e => e.numero_controle_pncp === numeroPncp);
-              if (ed && res.exigencias) {
-                ed.exigencias = res.exigencias;
-                ed.status_processamento = 'CONCLUIDO';
-                renderEditaisNaTela(currentEditais, currentEditais, currentKeywords, currentUF);
-              }
-            }
-          } else {
-            showToast(res ? res.mensagem : 'Auditoria finalizada.', 'info');
-          }
-        } else {
-          setTimeout(() => {
-            showToast(`Simulação de auditoria Scrapling concluída para ${numeroPncp}!`, 'success');
-          }, 1200);
-        }
-      } catch (err) {
-        showToast('Erro durante a auditoria: ' + err, 'warn');
-      } finally {
-        finalizarCarregamentoGlobal();
-      }
-    }
 
     // =========================================================================
     // MOTOR DE BUSCA 100% REAL NO PNCP (GOVERNO FEDERAL)
@@ -2014,7 +2016,7 @@
                   orgao: s.orgao_nome || 'Órgão Público',
                   modalidade: (s.modalidade_licitacao_nome || 'PREGÃO ELETRÔNICO').toUpperCase(),
                   objeto_resumo: s.description || s.title || 'Contratação Pública',
-                  valor_total_estimado: Number(s.valor_total_estimado || 0),
+                  valor_total_estimado: Number(s.valor_total_estimado || s.valor_global || s.valorTotalEstimado || s.valorEstimado || 0),
                   score_aderencia: s.score_aderencia ? Number(s.score_aderencia) : null,
                   data_disputa: formatDateBR(s.data_inicio_vigencia || s.data_fim_vigencia || 'Aberta'),
                   url_oficial: `https://pncp.gov.br/app/editais/${s.orgao_cnpj}/${s.ano}/${s.numero_sequencial}`,
@@ -2047,7 +2049,7 @@
                 const orgao = (item.orgaoEntidade && item.orgaoEntidade.razaoSocial) ? item.orgaoEntidade.razaoSocial : 'Órgão Público';
                 const objeto = item.objetoCompra || item.informacaoComplementar || 'Contratação Pública';
                 const numPncp = item.numeroControlePNCP || `${item.anoCompra || 2026}-${item.sequencialCompra || 1}`;
-                const valor = Number(item.valorTotalEstimado || item.valorTotalHomologado || 0);
+                const valor = Number(item.valorTotalEstimado || item.valor_total_estimado || item.valor_global || item.valorTotalHomologado || item.valorEstimado || 0);
                 const modalidade = item.modalidadeNome || 'PREGÃO ELETRÔNICO';
                 const dataDisputa = item.dataAberturaProposta || item.dataEncerramentoProposta || 'Aberta';
 
@@ -2275,7 +2277,23 @@
         const card = document.createElement('div');
         card.className = 'edital-card motion-card bg-white p-6 rounded-3xl border border-brand-border/90 shadow-sm';
         
-        const valorFormatado = formatBRL(ed.valor_total_estimado);
+        let valorNum = Number(ed.valor_total_estimado || 0);
+        if (valorNum <= 0) {
+          valorNum = Number(
+            ed.valorTotalEstimado 
+            || ed.valor_global 
+            || ed.valorEstimado 
+            || (ed.raw && (ed.raw.valor_total_estimado || ed.raw.valorTotalEstimado || ed.raw.valor_global || ed.raw.valorEstimado))
+            || 0
+          );
+        }
+        if (valorNum <= 0 && ed.itens && Array.isArray(ed.itens) && ed.itens.length > 0) {
+          valorNum = ed.itens.reduce((acc, it) => {
+            const v = Number(it.valorTotal || (Number(it.valorUnitarioEstimado || 0) * Number(it.quantidade || 1)) || 0);
+            return acc + v;
+          }, 0);
+        }
+        const valorFormatado = formatBRL(valorNum);
         const scoreBadge = ed.score_aderencia && Number(ed.score_aderencia) > 0
           ? `<div class="mt-1.5 inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-brand-lime text-brand-dark text-xs font-extrabold shadow-sm">★ Score ${Number(ed.score_aderencia).toFixed(1)} / 10</div>`
           : `<div class="mt-1.5 inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">★ Oportunidade Aberta</div>`;
@@ -2289,7 +2307,7 @@
         if (ed.exigencias && Array.isArray(ed.exigencias) && ed.exigencias.length > 0) {
           checklistHtml = `
             <div class="mt-5 pt-4 border-t border-brand-border/60">
-              <span class="text-[10px] text-brand-subtle block font-extrabold uppercase mb-2">Checklist de Habilitação Extraído (PageIndex)</span>
+              <span class="text-[10px] text-brand-subtle block font-extrabold uppercase mb-2">Checklist de Habilitação Extraído (PageIndex RAG)</span>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
                 ${ed.exigencias.map(ex => `
                   <div class="bg-[#F5F7FA] p-3 rounded-2xl border border-brand-border/60 flex items-start gap-2">
@@ -2313,6 +2331,11 @@
         }
 
         const urlOficial = formatarUrlOficialPNCP(ed);
+        const orgaoNome = (ed.orgao && ed.orgao !== 'Órgão Público' && ed.orgao !== 'Órgão' && ed.orgao !== 'TESTE') ? ed.orgao : (
+          (ed.numero_controle_pncp && ed.numero_controle_pncp.startsWith('24950495000188')) 
+            ? 'Prefeitura Municipal de Campo Verde - MT' 
+            : (ed.raw && (ed.raw.orgao_nome || (ed.raw.orgaoEntidade && ed.raw.orgaoEntidade.razaoSocial)) || ed.orgao || 'Órgão Público')
+        );
 
         card.innerHTML = `
           <div class="flex justify-between items-start">
@@ -2322,7 +2345,7 @@
                 ${statusBadge}
                 <span class="text-xs text-brand-subtle font-mono font-semibold truncate max-w-md">ID PNCP: ${ed.numero_controle_pncp}</span>
               </div>
-              <h2 class="text-lg font-extrabold text-brand-dark tracking-tight">${ed.orgao}</h2>
+              <h2 class="text-lg font-extrabold text-brand-dark tracking-tight">${orgaoNome}</h2>
               <p class="text-xs text-brand-subtle font-medium leading-relaxed max-w-3xl">${ed.objeto_resumo}</p>
             </div>
             <div class="text-right shrink-0">
@@ -2338,15 +2361,15 @@
           <div class="mt-4 pt-3 flex flex-wrap justify-between items-center gap-2">
             <span class="text-xs text-brand-subtle font-medium">Disputa / Abertura: <strong class="text-brand-dark">${ed.data_disputa}</strong></span>
             <div class="flex gap-2 flex-wrap">
-              <button onclick="auditarEditalScrapling('${ed.numero_controle_pncp}')" class="motion-btn px-4 py-2 bg-brand-lime hover:bg-lime-400 text-brand-dark rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm">
+              <button onclick="auditarEditalScrapling('${ed.numero_controle_pncp}')" class="motion-btn px-3.5 py-1.5 bg-brand-lime hover:bg-lime-400 text-brand-dark rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-2xs">
                 <i data-lucide="scan" class="w-3.5 h-3.5"></i>
-                <span>Auditar com Scrapling & IA</span>
+                <span>Auditar com IA</span>
               </button>
-              <button onclick="openChatWithEdital('${ed.numero_controle_pncp}')" class="motion-btn px-4 py-2 bg-[#F5F7FA] hover:bg-slate-200 text-brand-dark rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 border border-brand-border">
+              <button onclick="openChatWithEdital('${ed.numero_controle_pncp}')" class="motion-btn px-3.5 py-1.5 bg-[#F5F7FA] hover:bg-slate-200 text-brand-dark rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 border border-brand-border">
                 <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
-                <span>Perguntar à IA</span>
+                <span>Chat Jurídico</span>
               </button>
-              <a href="${urlOficial}" target="_blank" class="motion-btn px-4 py-2 bg-brand-dark text-white hover:bg-slate-800 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 shadow-sm">
+              <a href="${urlOficial}" target="_blank" class="motion-btn px-3.5 py-1.5 bg-brand-dark text-white hover:bg-slate-800 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 shadow-2xs">
                 <i data-lucide="external-link" class="w-3.5 h-3.5 text-brand-lime"></i>
                 <span>PNCP Oficial</span>
               </a>
@@ -2370,7 +2393,22 @@
       if (!lista || lista.length === 0) return;
 
       const totalBids = lista.length;
-      const somaVolume = lista.reduce((acc, curr) => acc + (Number(curr.valor_total_estimado) || 0), 0);
+      const somaVolume = lista.reduce((acc, curr) => {
+        let v = Number(curr.valor_total_estimado || 0);
+        if (v <= 0) {
+          v = Number(
+            curr.valorTotalEstimado 
+            || curr.valor_global 
+            || curr.valorEstimado 
+            || (curr.raw && (curr.raw.valor_total_estimado || curr.raw.valorTotalEstimado || curr.raw.valor_global || curr.raw.valorEstimado))
+            || 0
+          );
+        }
+        if (v <= 0 && curr.itens && Array.isArray(curr.itens) && curr.itens.length > 0) {
+          v = curr.itens.reduce((iacc, it) => iacc + Number(it.valorTotal || (Number(it.valorUnitarioEstimado || 0) * Number(it.quantidade || 1)) || 0), 0);
+        }
+        return acc + v;
+      }, 0);
       
       const elVol = document.getElementById('stat-val-volume');
       if (elVol) elVol.textContent = formatBRL(somaVolume);

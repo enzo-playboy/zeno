@@ -89,3 +89,36 @@ def ensure_directories():
     get_app_dir()
     get_downloads_dir()
     get_logs_dir()
+
+def get_ui_dist_dir() -> Path:
+    """
+    Retorna o diretório dos arquivos estáticos compilados da interface (dist).
+    Suporta ambiente empacotado PyInstaller (_MEIPASS) e desenvolvimento local.
+    """
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        bundle_dist = Path(sys._MEIPASS) / "src" / "desktop" / "ui" / "dist"
+        if bundle_dist.exists():
+            return bundle_dist
+        return Path(sys._MEIPASS) / "src" / "desktop" / "ui"
+
+    local_dist = Path(__file__).resolve().parent.parent / "desktop" / "ui" / "dist"
+    if local_dist.exists():
+        return local_dist
+
+    return Path(__file__).resolve().parent.parent / "desktop" / "ui"
+
+def get_ui_entrypoint() -> Path:
+    """
+    Retorna o caminho do index.html principal da UI.
+    Prioriza o bundle compilado em src/desktop/ui/dist/index.html,
+    com fallback automático para src/desktop/ui/index.html.
+    """
+    dist_dir = get_ui_dist_dir()
+    dist_index = dist_dir / "index.html"
+    if dist_index.exists():
+        return dist_index
+
+    # Fallback seguro caso dist ainda não tenha sido compilado
+    dev_index = Path(__file__).resolve().parent.parent / "desktop" / "ui" / "index.html"
+    return dev_index
+

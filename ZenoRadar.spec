@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('E:/zeno lic/src/desktop/ui/index.html', 'src/desktop/ui')]
+datas = [('E:/zeno lic/src/desktop/ui/index.html', 'src/desktop/ui'), ('E:/zeno lic/src/desktop/ui/dist', 'src/desktop/ui/dist')]
 binaries = []
 hiddenimports = ['pystray._win32', 'PIL._imaging', 'apscheduler.triggers.interval', 'apscheduler.schedulers.background', 'src.utils.paths', 'src.licensing.validator', 'src.licensing.hwid', 'src.desktop.startup_manager', 'src.desktop.tray_app', 'src.desktop.api', 'src.mcp_server', 'src.mcp_server.zeno_mcp', 'src.intelligence.chat_assistant', 'src.intelligence.react_auditor', 'src.intelligence.pageindex_tree', 'src.parsers.pdf_router', 'src.parsers.paddle_ocr_worker', 'src.collectors.pncp_api', 'src.collectors.scrapling_fetcher', 'src.notifier.whatsapp_sender', 'src.database.repository', 'src.database.models', 'webview', 'webview.platforms.winforms', 'webview.platforms.edgechromium']
 tmp_ret = collect_all('webview')

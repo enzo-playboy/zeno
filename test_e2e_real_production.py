@@ -177,8 +177,9 @@ def run_production_e2e_test(open_gui: bool = True):
         HAS_WEBVIEW = False
         print("⚠️  pywebview não encontrado no ambiente Python. A GUI requer 'pip install pywebview'.")
 
-    ui_html_path = BASE_DIR / "src" / "desktop" / "ui" / "index.html"
-    assert ui_html_path.exists(), f"FALHA: Arquivo index.html da UI não encontrado em {ui_html_path}!"
+    from src.utils.paths import get_ui_entrypoint
+    ui_html_path = get_ui_entrypoint()
+    assert ui_html_path.exists(), f"FALHA: Arquivo de UI não encontrado em {ui_html_path}!"
     print(f"📍 Frontend HTML5 SPA: {ui_html_path}")
 
     # Criação da Desktop API bridge conectada aos dados reais

@@ -25,11 +25,15 @@ logger = logging.getLogger("ZenoRepository")
 class Repository:
     def __init__(self, db_path: Optional[str] = None):
         if not db_path:
-            raw_url = settings.DATABASE_URL
-            if raw_url.startswith("sqlite:///"):
-                self.db_path = raw_url.replace("sqlite:///", "")
-            else:
-                self.db_path = "./bid_engine.db"
+            try:
+                from src.utils.paths import get_db_path
+                self.db_path = str(get_db_path())
+            except Exception:
+                raw_url = settings.DATABASE_URL
+                if raw_url.startswith("sqlite:///"):
+                    self.db_path = raw_url.replace("sqlite:///", "")
+                else:
+                    self.db_path = "./bid_engine.db"
         else:
             self.db_path = db_path
             
@@ -1048,11 +1052,10 @@ class Repository:
             cursor = conn.cursor()
             cursor.execute("SELECT id, status_processamento, score_aderencia FROM editais WHERE numero_controle_pncp = ?", (num_pncp,))
             existente = cursor.fetchone()
-
             if existente:
                 cursor.execute("""
                 UPDATE editais SET
-                    orgao = COALESCE(?, orgao),
+                    orgao = CASE WHEN ? IS NOT NULL AND ? != '' AND ? NOT IN ('Órgão Público', 'Órgão', 'TESTE') THEN ? ELSE orgao END,
                     modalidade = COALESCE(?, modalidade),
                     data_disputa = COALESCE(?, data_disputa),
                     portal_disputa = COALESCE(?, portal_disputa),
@@ -1062,7 +1065,7 @@ class Repository:
                     updated_at = CURRENT_TIMESTAMP
                 WHERE numero_controle_pncp = ?
                 """, (
-                    orgao,
+                    orgao, orgao, orgao, orgao,
                     modalidade,
                     data_disputa,
                     portal_disputa,
@@ -1138,6 +1141,10 @@ class Repository:
             conn.commit()
             return cursor.lastrowid
 
+    def listar_editais(self, limit: int = 100, busca: str = "") -> List[Dict[str, Any]]:
+        """Alias para listar_editais_dashboard para máxima compatibilidade."""
+        return self.listar_editais_dashboard(limit=limit, busca=busca)
+
     def listar_editais_dashboard(self, limit: int = 50, busca: str = "") -> List[Dict[str, Any]]:
         """Lista os editais para exibição no Dashboard interativo, com sincronização automática SQLite + Supabase."""
         with self._get_connection() as conn:
@@ -1184,6 +1191,22 @@ class Repository:
                     except Exception:
                         raw_dict = {}
 
+                val_row = float(r["valor_total_estimado"] or 0.0)
+                if val_row <= 0 and raw_dict:
+                    val_row = float(
+                        raw_dict.get("valor_total_estimado")
+                        or raw_dict.get("valorTotalEstimado")
+                        or raw_dict.get("valor_global")
+                        or raw_dict.get("valorEstimado")
+                        or 0.0
+                    )
+                itens_parsed = json.loads(r["itens_json"]) if r["itens_json"] else []
+                if val_row <= 0 and itens_parsed:
+                    val_row = sum(
+                        float(it.get("valorTotal") or (float(it.get("valorUnitarioEstimado") or 0.0) * float(it.get("quantidade") or 1.0)) or 0.0)
+                        for it in itens_parsed if isinstance(it, dict)
+                    )
+
                 result.append({
                     "numero_controle_pncp": num,
                     "orgao": r["orgao"] or "Órgão Público",
@@ -1191,10 +1214,10 @@ class Repository:
                     "data_disputa": r["data_disputa"] or "A definir",
                     "portal_disputa": r["portal_disputa"] or "PNCP",
                     "objeto_resumo": r["objeto_resumo"] or "",
-                    "valor_total_estimado": float(r["valor_total_estimado"] or 0.0),
+                    "valor_total_estimado": float(val_row or 0.0),
                     "score_aderencia": float(r["score_aderencia"]) if r["score_aderencia"] is not None else None,
                     "recomendacao_executiva": r["recomendacao_executiva"] or "",
-                    "itens": json.loads(r["itens_json"]) if r["itens_json"] else [],
+                    "itens": itens_parsed,
                     "exigencias": json.loads(r["exigencias_json"]) if r["exigencias_json"] else [],
                     "armadilhas": json.loads(r["armadilhas_json"]) if r["armadilhas_json"] else [],
                     "status_processamento": r["status_processamento"] or "COLETADO",
@@ -1211,8 +1234,27 @@ class Repository:
                             c_num = ce.get("numero_controle_pncp")
                             if c_num and c_num not in vistos:
                                 vistos.add(c_num)
+                                c_val = float(ce.get("valor_total_estimado") or 0.0)
+                                c_raw = ce.get("raw_pncp_json") or {}
+                                if c_val <= 0 and isinstance(c_raw, dict):
+                                    c_val = float(
+                                        c_raw.get("valor_total_estimado")
+                                        or c_raw.get("valorTotalEstimado")
+                                        or c_raw.get("valor_global")
+                                        or c_raw.get("valorEstimado")
+                                        or 0.0
+                                    )
+                                c_itens = ce.get("itens_json") or []
+                                if c_val <= 0 and isinstance(c_itens, list) and c_itens:
+                                    c_val = sum(
+                                        float(it.get("valorTotal") or (float(it.get("valorUnitarioEstimado") or 0.0) * float(it.get("quantidade") or 1.0)) or 0.0)
+                                        for it in c_itens if isinstance(it, dict)
+                                    )
+
                                 # Insere localmente em espelho
-                                self.salvar_edital_coletado(ce)
+                                ce_copy = dict(ce)
+                                ce_copy["valor_total_estimado"] = c_val
+                                self.salvar_edital_coletado(ce_copy)
                                 result.append({
                                     "numero_controle_pncp": c_num,
                                     "orgao": ce.get("orgao") or "Órgão Público",
@@ -1220,14 +1262,14 @@ class Repository:
                                     "data_disputa": ce.get("data_disputa") or "A definir",
                                     "portal_disputa": ce.get("portal_disputa") or "PNCP",
                                     "objeto_resumo": ce.get("objeto_resumo") or "",
-                                    "valor_total_estimado": float(ce.get("valor_total_estimado") or 0.0),
+                                    "valor_total_estimado": float(c_val or 0.0),
                                     "score_aderencia": float(ce.get("score_aderencia")) if ce.get("score_aderencia") is not None else None,
                                     "recomendacao_executiva": ce.get("recomendacao_executiva") or "",
-                                    "itens": ce.get("itens_json") or [],
+                                    "itens": c_itens,
                                     "exigencias": ce.get("exigencias_json") or [],
                                     "armadilhas": ce.get("armadilhas_json") or [],
                                     "status_processamento": ce.get("status_processamento") or "COLETADO",
-                                    "raw": ce.get("raw_pncp_json") or {},
+                                    "raw": c_raw,
                                     "created_at": ce.get("created_at")
                                 })
                 except Exception as e_cloud:

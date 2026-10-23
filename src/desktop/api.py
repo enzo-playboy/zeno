@@ -380,15 +380,26 @@ class DesktopAPI:
                 self.scan_link_status["step"] = "Auditoria por IA"
                 self.scan_link_status["mensagem"] = "IA identificando cláusulas abusivas, leis aplicáveis e exigências cruciais..."
 
+                orgao_resolved = (
+                    (compra_info.get("orgaoEntidade", {}).get("razaoSocial") if isinstance(compra_info.get("orgaoEntidade"), dict) else "")
+                    or dados_scrapling.get("orgao")
+                    or pncp.obter_orgao_por_cnpj(cnpj)
+                    or "Órgão Público"
+                )
+
+                valor_scan = compra_info.get("valorTotalEstimado") or compra_info.get("valor_total_estimado") or compra_info.get("valor_global") or dados_scrapling.get("valor_estimado") or 0.0
+                if (not valor_scan or float(valor_scan) <= 0) and itens_info:
+                    valor_scan = sum(float(i.get("valorTotal") or (float(i.get("valorUnitarioEstimado") or 0.0) * float(i.get("quantidade") or 1.0)) or 0.0) for i in itens_info)
+
                 raw_meta = {
                     "numeroControlePNCP": num_pncp,
                     "orgaoEntidade": {
-                        "razaoSocial": (compra_info.get("orgaoEntidade", {}).get("razaoSocial") if isinstance(compra_info.get("orgaoEntidade"), dict) else "") or dados_scrapling.get("orgao") or "Órgão Licitante",
+                        "razaoSocial": orgao_resolved,
                         "cnpj": cnpj
                     },
                     "modalidadeNome": compra_info.get("modalidadeNome") or dados_scrapling.get("modalidade") or "Pregão Eletrônico",
                     "objetoCompra": compra_info.get("objetoCompra") or dados_scrapling.get("objeto") or "Contratação Pública",
-                    "valorTotalEstimado": compra_info.get("valorTotalEstimado") or dados_scrapling.get("valor_estimado") or 0.0,
+                    "valorTotalEstimado": float(valor_scan or 0.0),
                     "dataEncerramentoProposta": compra_info.get("dataEncerramentoProposta") or dados_scrapling.get("data_encerramento") or "",
                     "linkSistemaOrigem": compra_info.get("linkSistemaOrigem") or dados_scrapling.get("link_disputa") or "PNCP Oficial"
                 }
@@ -682,24 +693,63 @@ class DesktopAPI:
                 continue
 
             orgao_info = item.get("orgaoEntidade", {})
-            razao = orgao_info.get("razaoSocial") if isinstance(orgao_info, dict) else str(orgao_info or "")
-            cnpj_org = orgao_info.get("cnpj") if isinstance(orgao_info, dict) else ""
-            ano = item.get("anoCompra") or datetime.now().year
-            seq = item.get("sequencialCompra") or 1
+            razao = (
+                (orgao_info.get("razaoSocial") if isinstance(orgao_info, dict) else str(orgao_info or ""))
+                or item.get("orgao_nome")
+                or item.get("orgao")
+                or item.get("nomeOrgao")
+                or ""
+            )
+            cnpj_org = (
+                (orgao_info.get("cnpj") if isinstance(orgao_info, dict) else "")
+                or item.get("orgao_cnpj")
+                or item.get("cnpj")
+                or ""
+            )
+            ano = item.get("anoCompra") or item.get("ano") or datetime.now().year
+            seq = item.get("sequencialCompra") or item.get("numero_sequencial") or 1
             cnpj_clean = "".join(filter(str.isdigit, str(cnpj_org)))
+            if (not razao or razao in ["Órgão Público", "Órgão"]) and cnpj_clean:
+                pncp_temp = PNCPClient()
+                razao_real = pncp_temp.obter_orgao_por_cnpj(cnpj_clean)
+                if razao_real:
+                    razao = razao_real
+
             url_oficial = f"https://pncp.gov.br/app/editais/{cnpj_clean}/{ano}/{seq}" if cnpj_clean else f"https://pncp.gov.br/app/editais?q={num_pncp}"
+
+            val_candidato = (
+                item.get("valor_total_estimado")
+                or item.get("valorTotalEstimado")
+                or item.get("valor_global")
+                or item.get("valorEstimado")
+                or item.get("valorTotalHomologado")
+                or item.get("valor_total_homologado")
+                or 0.0
+            )
+            try:
+                val_float = float(val_candidato or 0.0)
+            except (ValueError, TypeError):
+                val_float = 0.0
+
+            if val_float <= 0:
+                itens_lista = item.get("itens") or item.get("itens_json")
+                if isinstance(itens_lista, list) and itens_lista:
+                    val_float = sum(
+                        float(it.get("valorTotal") or (float(it.get("valorUnitarioEstimado") or 0.0) * float(it.get("quantidade") or 1.0)) or 0.0)
+                        for it in itens_lista if isinstance(it, dict)
+                    )
 
             ed_dict = {
                 "numero_controle_pncp": num_pncp,
                 "orgao": razao or "Órgão Público",
-                "modalidade": (item.get("modalidadeNome") or item.get("modalidade") or "PREGÃO ELETRÔNICO").upper(),
-                "objeto_resumo": item.get("objetoCompra") or item.get("objeto") or item.get("informacaoComplementar") or "Contratação Pública",
-                "valor_total_estimado": float(item.get("valorTotalEstimado") or item.get("valorEstimado") or 0.0),
+                "modalidade": (item.get("modalidadeNome") or item.get("modalidade") or item.get("modalidade_licitacao_nome") or "PREGÃO ELETRÔNICO").upper(),
+                "objeto_resumo": item.get("objetoCompra") or item.get("objeto") or item.get("description") or item.get("informacaoComplementar") or "Contratação Pública",
+                "valor_total_estimado": float(val_float or 0.0),
                 "score_aderencia": None,
-                "data_disputa": item.get("dataAberturaProposta") or item.get("dataEncerramentoProposta") or "Aberta",
+                "data_disputa": item.get("dataAberturaProposta") or item.get("dataEncerramentoProposta") or item.get("data_inicio_vigencia") or "Aberta",
                 "url_oficial": url_oficial,
                 "uf": item.get("uf") or uf_clean,
-                "municipioNome": item.get("municipioNome") or "",
+                "municipioNome": item.get("municipioNome") or item.get("municipio_nome") or "",
                 "origem_consulta": "apify",
                 "status_processamento": "COLETADO",
                 "raw": item
@@ -843,13 +893,21 @@ class DesktopAPI:
                 arvore_docs = tree.construir_arvore(paginas)
 
             # 6. Auditoria ReAct
+            orgao_nome = "Órgão Público"
+            if ed_salvo and ed_salvo.get("orgao") and ed_salvo.get("orgao") != "Órgão Público":
+                orgao_nome = ed_salvo.get("orgao")
+            else:
+                orgao_nome = pncp.obter_orgao_por_cnpj(cnpj) or (ed_salvo.get("orgao") if ed_salvo else "Órgão Público")
+
             raw_meta = ed_salvo or {
                 "numeroControlePNCP": num_limpo,
-                "orgaoEntidade": {"razaoSocial": "Órgão Público", "cnpj": cnpj},
+                "orgaoEntidade": {"razaoSocial": orgao_nome, "cnpj": cnpj},
                 "modalidadeNome": "Pregão Eletrônico",
                 "objetoCompra": "Contratação Pública",
                 "valorTotalEstimado": 0.0
             }
+            if isinstance(raw_meta.get("orgaoEntidade"), dict) and (not raw_meta["orgaoEntidade"].get("razaoSocial") or raw_meta["orgaoEntidade"].get("razaoSocial") == "Órgão Público"):
+                raw_meta["orgaoEntidade"]["razaoSocial"] = orgao_nome
             ed_auditado = auditor.auditar_edital(
                 raw_pncp_item=raw_meta,
                 arvore_docs=arvore_docs,
@@ -868,6 +926,9 @@ class DesktopAPI:
         except Exception as e:
             logger.error(f"Erro ao auditar edital {numero_controle_pncp}: {e}")
             return {"status": "erro", "mensagem": str(e)}
+
+    # Alias para compatibilidade com chamadas da interface
+    auditar_edital_completo = auditar_edital
 
     def listar_arquivos_edital(self, numero_controle_pncp: str) -> List[Dict[str, Any]]:
         """
@@ -984,14 +1045,19 @@ class DesktopAPI:
         """
         logger.info(f"Ponte PyWebView: perguntar_juridico(pncp_id='{pncp_id}', pergunta='{pergunta}')")
         try:
-            edital_alvo = pncp_id
-            if pncp_id:
-                # Mapeia apelidos da interface para o número de controle PNCP real no SQLite
-                editais = self.repo.listar_editais()
+            edital_alvo = (pncp_id or "").strip()
+            # Mapeia apelidos da interface para o número de controle PNCP real no SQLite
+            editais = self.repo.listar_editais_dashboard(limit=200)
+            if edital_alvo:
+                target = edital_alvo.lower()
                 for ed in editais:
-                    if pncp_id.lower() in ed["numero_controle_pncp"].lower() or pncp_id.lower() in ed["orgao"].lower():
+                    num = (ed.get("numero_controle_pncp") or "").lower()
+                    org = (ed.get("orgao") or "").lower()
+                    if target in num or target in org or org in target or num in target:
                         edital_alvo = ed["numero_controle_pncp"]
                         break
+            elif editais:
+                edital_alvo = editais[0]["numero_controle_pncp"]
 
             res = self.chat_assistant.responder(pergunta=pergunta, numero_controle_pncp=edital_alvo)
             if isinstance(res, dict):

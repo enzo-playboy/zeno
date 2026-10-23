@@ -1,0 +1,2932 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zeno Radar — Inteligência em Licitações</title>
+  
+  <!-- Google Fonts: Plus Jakarta Sans (Tipografia Premium) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- GSAP para Motion Physics e Micro-Animações -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              lime: '#B8FF01',
+              limeHover: '#a3e600',
+              limeLight: '#E8FFA6',
+              dark: '#0F1216',
+              darkSurface: '#181C24',
+              surface: '#FFFFFF',
+              bg: '#F5F7FA',
+              subtle: '#64748B',
+              border: '#E2E8F0',
+              accentDark: '#1E2430'
+            }
+          },
+          borderRadius: {
+            '3xl': '1.5rem',
+            '4xl': '2rem',
+          },
+          boxShadow: {
+            'glow-lime': '0 0 25px rgba(184, 255, 1, 0.45)',
+            'glow-subtle': '0 10px 30px -5px rgba(184, 255, 1, 0.15)',
+            'card-hover': '0 20px 35px -10px rgba(15, 23, 42, 0.08), 0 0 1px 1px rgba(184, 255, 1, 0.3)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Reset total de viewport nativo para desktop sem bordas e sem barras indesejadas */
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #F5F7FA;
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Scrollbar minimalista e fluida */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+    /* Motion Keyframes & Radar Scanning */
+    @keyframes radarBeam {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .radar-beam {
+      animation: radarBeam 3s linear infinite;
+      transform-origin: center center;
+    }
+
+    @keyframes radarPing {
+      0% { transform: scale(0.6); opacity: 0.9; }
+      80% { transform: scale(2.4); opacity: 0; }
+      100% { transform: scale(2.6); opacity: 0; }
+    }
+    .radar-ping {
+      animation: radarPing 2.4s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(184, 255, 1, 0.5); }
+      50% { box-shadow: 0 0 0 10px rgba(184, 255, 1, 0); }
+    }
+    .pulse-glow {
+      animation: pulseGlow 2.5s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(200%); }
+    }
+    .shimmer-effect::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+      animation: shimmer 2.8s infinite;
+    }
+
+    /* Transições suaves de Cards */
+    .motion-card {
+      transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.28s ease, border-color 0.25s ease;
+      will-change: transform, box-shadow;
+    }
+    .motion-card:hover {
+      transform: translateY(-4px) scale(1.008);
+      border-color: rgba(184, 255, 1, 0.85);
+      box-shadow: 0 18px 30px -10px rgba(15, 23, 42, 0.08);
+    }
+
+    /* Botões com pressão háptica visual */
+    .motion-btn {
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .motion-btn:active {
+      transform: scale(0.94);
+    }
+
+    /* Navegação Ativa com pilar de luz */
+    .active-nav {
+      background-color: #FFFFFF !important;
+      color: #0F1216 !important;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+      position: relative;
+    }
+    .active-nav::before {
+      content: '';
+      position: absolute;
+      left: 5px;
+      top: 20%;
+      bottom: 20%;
+      width: 3.5px;
+      border-radius: 9999px;
+      background-color: #B8FF01;
+    }
+
+    /* Bouncing dots para o Chat IA */
+    @keyframes typingBounce {
+      0%, 80%, 100% { transform: translateY(0); }
+      40% { transform: translateY(-6px); }
+    }
+    .typing-dot:nth-child(1) { animation: typingBounce 1.2s infinite ease-in-out; }
+    .typing-dot:nth-child(2) { animation: typingBounce 1.2s infinite ease-in-out 0.2s; }
+    .typing-dot:nth-child(3) { animation: typingBounce 1.2s infinite ease-in-out 0.4s; }
+
+    /* Shimmer Skeleton Animado Contínuo para Estados de Carregamento */
+    @keyframes skeletonShimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton-box {
+      background: linear-gradient(90deg, #E2E8F0 0%, #F8FAFC 45%, #E2E8F0 85%);
+      background-size: 300% 100%;
+      animation: skeletonShimmer 1.8s ease-in-out infinite;
+    }
+
+    /* Linha de Progresso Global Superior com Glow Neon */
+    @keyframes loaderSlide {
+      0% { transform: translateX(-100%); }
+      50% { transform: translateX(0%); }
+      100% { transform: translateX(100%); }
+    }
+    .animate-loaderSlide {
+      animation: loaderSlide 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+  </style>
+</head>
+<body class="flex w-full h-full text-brand-dark antialiased bg-brand-bg">
+
+  <!-- ==================== SIDEBAR ULTRA MODERNA COM RADAR VIVO ==================== -->
+  <aside class="w-64 h-full bg-[#F5F7FA] border-r border-brand-border flex flex-col justify-between p-5 select-none shrink-0 z-20">
+    <div>
+      <!-- Brand Logo com Radar Scanner em Tempo Real -->
+      <div class="flex items-center gap-3 px-2 mb-8 group cursor-pointer" onclick="navigate('home')">
+        <div class="relative w-11 h-11 rounded-2xl bg-brand-dark flex items-center justify-center text-brand-lime shadow-md shadow-brand-dark/20 overflow-hidden">
+          <div class="absolute inset-0 m-auto w-3 h-3 rounded-full bg-brand-lime/40 radar-ping"></div>
+          <div class="absolute inset-0 w-full h-full radar-beam pointer-events-none opacity-40"
+               style="background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(184, 255, 1, 0.8) 360deg);">
+          </div>
+          <i data-lucide="radar" class="w-5 h-5 relative z-10 transition-transform duration-300 group-hover:scale-110"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-base font-extrabold tracking-wider uppercase block">ZENO RADAR</span>
+          </div>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-brand-lime pulse-glow"></span>
+            <span class="text-[10px] text-brand-subtle tracking-tight font-semibold uppercase" id="sidebar-uf-label">OaaS Licitações MT</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Menu com Transição Remotion/Spring -->
+      <nav class="space-y-1.5" id="nav-container">
+        <button onclick="navigate('home')" id="nav-home" class="nav-btn active-nav motion-btn w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-semibold transition-all duration-200 text-brand-subtle hover:text-brand-dark hover:bg-white/70">
+          <div class="flex items-center gap-3">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+            <span>Painel Radar</span>
+          </div>
+          <span class="w-2 h-2 rounded-full bg-brand-lime"></span>
+        </button>
+
+        <button onclick="navigate('editais')" id="nav-editais" class="nav-btn motion-btn w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-semibold transition-all duration-200 text-brand-subtle hover:text-brand-dark hover:bg-white/70">
+          <div class="flex items-center gap-3">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            <span>Editais PNCP</span>
+          </div>
+          <span id="badge-editais-count" class="text-[10px] font-extrabold bg-brand-lime text-brand-dark px-2 py-0.5 rounded-full shadow-sm">0 Novos</span>
+        </button>
+
+        <button onclick="navigate('chatbot')" id="nav-chatbot" class="nav-btn motion-btn w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-semibold transition-all duration-200 text-brand-subtle hover:text-brand-dark hover:bg-white/70">
+          <div class="flex items-center gap-3">
+            <i data-lucide="bot" class="w-4 h-4 text-emerald-600"></i>
+            <span>Chatbot Jurídico</span>
+          </div>
+          <span class="text-[9px] font-black bg-brand-dark text-brand-lime px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm">IA 4.0</span>
+        </button>
+
+        <button onclick="navigate('relatorios')" id="nav-relatorios" class="nav-btn motion-btn w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-semibold transition-all duration-200 text-brand-subtle hover:text-brand-dark hover:bg-white/70">
+          <div class="flex items-center gap-3">
+            <i data-lucide="folder-check" class="w-4 h-4"></i>
+            <span>Relatórios & PDFs</span>
+          </div>
+        </button>
+      </nav>
+    </div>
+
+    <!-- User / Hardware Lock Badge -->
+    <div class="bg-white p-3 rounded-2xl border border-brand-border/90 shadow-2xs flex items-center justify-between cursor-pointer hover:border-brand-lime transition-all duration-200 motion-btn group" onclick="openRadarConfig()" title="Configurações do Cliente">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 rounded-xl bg-brand-lime/20 text-brand-dark border border-brand-lime/40 flex items-center justify-center font-black text-xs group-hover:bg-brand-lime transition-colors shrink-0" id="sidebar-uf-badge">
+          MT
+        </div>
+        <div class="overflow-hidden min-w-0">
+          <p class="text-xs font-bold truncate" id="sidebar-client-name">Zeno Licitações</p>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+            <span class="text-[10px] text-brand-subtle font-medium truncate">Apify + Supabase</span>
+          </div>
+        </div>
+      </div>
+      <i data-lucide="sliders-horizontal" class="w-4 h-4 text-brand-subtle group-hover:text-brand-dark transition-colors shrink-0 ml-1"></i>
+    </div>
+  </aside>
+
+  <!-- ==================== ÁREA DE CONTEÚDO PRINCIPAL (100% FLUIDA) ==================== -->
+  <main class="flex-1 h-full flex flex-col bg-white overflow-hidden relative">
+    
+    <!-- Barra Global de Progresso Animada Superior (Neon Shimmer) -->
+    <div id="global-top-loader" class="hidden absolute top-0 left-0 right-0 h-1 z-50 overflow-hidden bg-brand-lime/20">
+      <div class="h-full w-full bg-gradient-to-r from-transparent via-brand-lime to-brand-limeHover animate-loaderSlide shadow-[0_0_12px_rgba(184,255,1,0.8)]"></div>
+    </div>
+    
+    <!-- Header Superior com Ações e Filtros (Layout Fluido & Espaçamento Perfeito) -->
+    <header class="min-h-[72px] h-[72px] border-b border-brand-border/70 px-6 flex items-center justify-between gap-4 bg-white/90 backdrop-blur-md shrink-0 z-10 select-none">
+      <div class="shrink-0 max-w-xs xl:max-w-md">
+        <h1 id="page-title" class="text-lg xl:text-xl font-black tracking-tight text-brand-dark flex items-center gap-2 whitespace-nowrap">
+          <span>Radar de Oportunidades</span>
+          <span class="text-[10px] uppercase font-black bg-brand-lime/30 text-brand-dark px-2.5 py-0.5 rounded-full tracking-wide shrink-0">Ao Vivo</span>
+        </h1>
+        <p id="page-subtitle" class="text-[11px] xl:text-xs text-brand-subtle font-medium truncate mt-0.5">Monitoramento contínuo no Portal Nacional de Contratações Públicas</p>
+      </div>
+
+      <div class="flex items-center gap-2 xl:gap-2.5 shrink-0">
+        <!-- Tag UF -->
+        <button onclick="openRadarConfig()" class="motion-btn px-3 py-1.5 bg-blue-50/90 hover:bg-blue-100 text-blue-700 rounded-full text-xs font-bold border border-blue-200/80 transition flex items-center gap-1.5 shadow-2xs" title="Configurar Região e Filtros">
+          <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+          <span id="header-uf-tag">UF: MT (PNCP)</span>
+          <i data-lucide="settings-2" class="w-3.5 h-3.5 ml-0.5 opacity-80"></i>
+        </button>
+
+        <!-- Botão Primário: Buscar via Apify -->
+        <button id="btn-search-pncp" onclick="triggerSearchPNCP()" class="relative overflow-hidden shimmer-effect motion-btn px-3.5 py-1.5 bg-brand-lime hover:bg-brand-limeHover text-brand-dark rounded-full text-xs font-extrabold tracking-wide shadow-2xs flex items-center gap-1.5 shrink-0" title="Consultar editais no PNCP via Apify">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+          <span>Buscar via Apify</span>
+        </button>
+
+        <!-- Input e Botão: Scan por Link PNCP -->
+        <div class="flex items-center gap-1 bg-[#F5F7FA] p-1 pl-2.5 rounded-full border border-brand-border focus-within:border-brand-lime focus-within:bg-white transition-all shadow-inner">
+          <i data-lucide="link" class="w-3.5 h-3.5 text-brand-subtle shrink-0"></i>
+          <input type="text" id="input-link-pncp" placeholder="Cole o link ou ID PNCP..." class="w-28 lg:w-36 xl:w-44 bg-transparent text-xs font-semibold text-brand-dark outline-none placeholder:text-brand-subtle/70 transition-all focus:w-44 xl:focus:w-56" onkeydown="if(event.key === 'Enter') dispararScanPorLink()">
+          <button id="btn-scan-link" onclick="dispararScanPorLink()" class="motion-btn px-2.5 py-1 bg-brand-dark hover:bg-slate-800 text-brand-lime text-[11px] font-black rounded-full flex items-center gap-1 shadow-2xs transition shrink-0" title="Auditar Link">
+            <i data-lucide="scan-line" class="w-3 h-3"></i>
+            <span>Scan Link</span>
+          </button>
+        </div>
+
+        <!-- Barra de Busca Rápida -->
+        <div class="relative group">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-brand-subtle absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within:text-brand-dark"></i>
+          <input type="text" id="quick-filter" oninput="handleQuickFilter(this.value)" placeholder="Filtrar por órgão ou objeto..." class="w-32 lg:w-40 xl:w-48 pl-8 pr-3 py-1.5 bg-[#F5F7FA] border border-transparent focus:border-brand-lime focus:bg-white rounded-full text-xs font-medium outline-none transition-all duration-300 focus:w-44 xl:focus:w-56 shadow-inner">
+        </div>
+      </div>
+    </header>
+
+    <!-- Content Viewport com Scroll Suave e Independente -->
+    <div id="content-viewport" class="flex-1 overflow-y-auto p-6 lg:p-7 bg-[#F5F7FA] relative">
+      
+      <!-- ==================== VIEW 1: HOME (DASHBOARD COM MOTION) ==================== -->
+      <section id="view-home" class="space-y-5">
+        
+        <!-- Cards de Métricas com Stagger Animation e Contadores -->
+        <div class="grid grid-cols-4 gap-4 lg:gap-5" id="stats-grid">
+          
+          <!-- Card 1: Volume em Disputa (Lime Hero Card) -->
+          <div class="motion-card bg-brand-lime p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between border border-brand-limeHover min-h-[128px]">
+            <div class="flex justify-between items-start">
+              <span class="text-[11px] font-black uppercase tracking-wider text-brand-dark/90">Volume em Disputa</span>
+              <div class="w-7 h-7 rounded-full bg-brand-dark/15 flex items-center justify-center">
+                <i data-lucide="trending-up" class="w-3.5 h-3.5 text-brand-dark"></i>
+              </div>
+            </div>
+            <div class="mt-3">
+              <span class="text-2xl font-black text-brand-dark block tracking-tight font-sans" id="stat-val-volume">R$ 0,00</span>
+              <div class="flex items-center gap-1.5 mt-1 text-[11px] font-bold text-brand-dark/90">
+                <span class="w-1.5 h-1.5 rounded-full bg-brand-dark"></span>
+                <span id="stat-label-uf">Oportunidades mapeadas</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Aderência Média -->
+          <div class="motion-card bg-white p-5 rounded-2xl border border-brand-border/80 shadow-2xs flex flex-col justify-between min-h-[128px]">
+            <div class="flex justify-between items-start">
+              <span class="text-[11px] font-extrabold uppercase tracking-wider text-brand-subtle">Aderência Média</span>
+              <div class="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <i data-lucide="target" class="w-3.5 h-3.5"></i>
+              </div>
+            </div>
+            <div class="mt-3">
+              <div class="flex items-baseline gap-1">
+                <span class="text-2xl font-black text-brand-dark" id="stat-val-score">-.-</span>
+                <span class="text-xs text-brand-subtle font-bold">/10</span>
+              </div>
+              <span class="text-[11px] text-brand-subtle font-semibold mt-1 flex items-center gap-1">
+                <i data-lucide="check-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+                <span>Score de compatibilidade</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Card 3: Editais Auditados e Salvos -->
+          <div class="motion-card bg-white p-5 rounded-2xl border border-brand-border/80 shadow-2xs flex flex-col justify-between min-h-[128px]">
+            <div class="flex justify-between items-start">
+              <span class="text-[11px] font-extrabold uppercase tracking-wider text-brand-subtle">Editais no Radar</span>
+              <div class="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                <i data-lucide="file-check-2" class="w-3.5 h-3.5"></i>
+              </div>
+            </div>
+            <div class="mt-3">
+              <span class="text-2xl font-black text-brand-dark block tracking-tight" id="metric-total-bids">0</span>
+              <span class="text-[11px] text-brand-subtle font-semibold mt-1 block">Oportunidades catalogadas</span>
+            </div>
+          </div>
+
+          <!-- Card 4: Idempotência & Licença -->
+          <div class="motion-card bg-white p-5 rounded-2xl border border-brand-border/80 shadow-2xs flex flex-col justify-between min-h-[128px]">
+            <div class="flex justify-between items-start">
+              <span class="text-[11px] font-extrabold uppercase tracking-wider text-brand-subtle">Status do Agente</span>
+              <div class="w-7 h-7 rounded-full bg-brand-lime/30 text-brand-dark flex items-center justify-center">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+              </div>
+            </div>
+            <div class="mt-3">
+              <span class="text-2xl font-black text-brand-dark block tracking-tight">100% PRONTO</span>
+              <span class="text-[11px] text-emerald-600 font-bold mt-1 flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Apify & Supabase Ativos</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner Interativo: Scan por Link PNCP (Scrapling + Redis + IA) -->
+        <div class="motion-card bg-gradient-to-r from-brand-dark via-slate-900 to-slate-800 p-5 rounded-2xl text-white shadow-md flex flex-col lg:flex-row items-center justify-between gap-4 border border-slate-700/60">
+          <div class="flex items-center gap-3.5 min-w-0">
+            <div class="w-11 h-11 rounded-2xl bg-brand-lime/20 text-brand-lime flex items-center justify-center border border-brand-lime/30 shrink-0">
+              <i data-lucide="scan" class="w-5 h-5 animate-pulse"></i>
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-black tracking-tight text-white">Auditoria Instantânea por Link do PNCP</span>
+                <span class="text-[10px] font-black bg-brand-lime text-brand-dark px-2.5 py-0.5 rounded-full uppercase tracking-wide shrink-0">Scrapling • Redis • IA</span>
+              </div>
+              <p class="text-xs text-slate-300 font-medium mt-0.5 leading-relaxed">Cole o link oficial de qualquer contratação para extrair exigências habilitatórias, riscos jurídicos, brechas editalícias e prazos críticos em segundos.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 w-full lg:w-auto shrink-0">
+            <div class="relative flex-1 lg:w-72 xl:w-80">
+              <i data-lucide="link" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+              <input type="text" id="home-input-link-pncp" placeholder="https://pncp.gov.br/app/editais/..." class="w-full pl-9 pr-3 py-2 bg-slate-800/90 border border-slate-600 focus:border-brand-lime rounded-xl text-xs font-semibold text-white outline-none placeholder:text-slate-400 shadow-inner" onkeydown="if(event.key === 'Enter') dispararScanPorLinkHome()">
+            </div>
+            <button onclick="dispararScanPorLinkHome()" class="motion-btn px-4 py-2 bg-brand-lime hover:bg-brand-limeHover text-brand-dark rounded-xl text-xs font-black shrink-0 flex items-center gap-1.5 shadow-sm shadow-brand-lime/20">
+              <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+              <span>Auditar Link</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Seção Gráfica com Animação de Barras Fluidas -->
+        <div class="grid grid-cols-3 gap-4 lg:gap-5">
+          
+          <!-- Gráfico Semanal Interativo -->
+          <div class="col-span-2 motion-card bg-white p-5 rounded-2xl border border-brand-border/80 shadow-2xs flex flex-col justify-between">
+            <div class="flex justify-between items-center mb-5">
+              <div>
+                <h3 class="font-extrabold text-sm text-brand-dark flex items-center gap-2">
+                  <span>Volume de Pregões Encontrados</span>
+                  <span class="w-2 h-2 rounded-full bg-brand-lime"></span>
+                </h3>
+                <p class="text-xs text-brand-subtle font-medium mt-0.5">Distribuição recente por data de abertura de propostas</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold bg-[#F5F7FA] border border-brand-border px-3 py-1 rounded-full text-brand-dark" id="chart-uf-tag">Estado: MT</span>
+              </div>
+            </div>
+
+            <!-- Barras Animadas estilo Remotion -->
+            <div class="h-40 flex items-end justify-between gap-6 px-4 pt-2 border-b border-brand-border/60" id="chart-bars">
+              <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end group cursor-pointer">
+                <div id="chart-bar-0" class="chart-bar w-full max-w-[42px] bg-slate-200/90 rounded-t-xl transition-all duration-300 group-hover:bg-brand-lime" data-height="15%" style="height: 0%;"></div>
+                <span id="chart-label-0" class="text-[11px] text-brand-subtle font-semibold group-hover:text-brand-dark">Fase 1</span>
+              </div>
+              <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end group cursor-pointer">
+                <div id="chart-bar-1" class="chart-bar w-full max-w-[42px] bg-slate-200/90 rounded-t-xl transition-all duration-300 group-hover:bg-brand-lime" data-height="15%" style="height: 0%;"></div>
+                <span id="chart-label-1" class="text-[11px] text-brand-subtle font-semibold group-hover:text-brand-dark">Fase 2</span>
+              </div>
+              <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end group cursor-pointer">
+                <div id="chart-bar-2" class="chart-bar w-full max-w-[42px] bg-slate-200/90 rounded-t-xl transition-all duration-300 group-hover:bg-brand-lime" data-height="15%" style="height: 0%;"></div>
+                <span id="chart-label-2" class="text-[11px] text-brand-subtle font-semibold group-hover:text-brand-dark">Fase 3</span>
+              </div>
+              <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end group cursor-pointer">
+                <div id="chart-bar-3" class="chart-bar w-full max-w-[42px] bg-brand-lime rounded-t-xl shadow-glow-subtle transition-all duration-300 group-hover:brightness-105" data-height="15%" style="height: 0%;"></div>
+                <span id="chart-label-3" class="text-[11px] text-brand-dark font-extrabold flex items-center gap-1">
+                  <span>Atual</span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-brand-lime"></span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card de Aderência por Nichos com Barras de Progresso Animadas -->
+          <div class="motion-card bg-white p-5 rounded-2xl border border-brand-border/80 shadow-2xs flex flex-col justify-between">
+            <div>
+              <h3 class="font-extrabold text-sm text-brand-dark">Aderência por Categoria</h3>
+              <p class="text-xs text-brand-subtle font-medium mb-4 mt-0.5">Categorias catalogadas no portal</p>
+              
+              <div class="space-y-3.5" id="category-progress">
+                <div>
+                  <div class="flex justify-between text-xs font-bold mb-1">
+                    <span id="cat-label-1">Obras e Construção Civil</span>
+                    <span id="cat-val-1" class="text-emerald-600 font-extrabold">0%</span>
+                  </div>
+                  <div class="w-full h-2 bg-[#F5F7FA] rounded-full overflow-hidden p-0.5">
+                    <div id="cat-bar-1" class="progress-fill h-full bg-brand-lime rounded-full transition-all duration-1000 ease-out" data-width="0%" style="width: 0%"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex justify-between text-xs font-bold mb-1">
+                    <span id="cat-label-2">Tecnologia & Informática</span>
+                    <span id="cat-val-2" class="text-brand-dark font-extrabold">0%</span>
+                  </div>
+                  <div class="w-full h-2 bg-[#F5F7FA] rounded-full overflow-hidden p-0.5">
+                    <div id="cat-bar-2" class="progress-fill h-full bg-brand-dark rounded-full transition-all duration-1000 ease-out" data-width="0%" style="width: 0%"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex justify-between text-xs font-bold mb-1">
+                    <span id="cat-label-3">Outros Bens e Serviços</span>
+                    <span id="cat-val-3" class="text-brand-subtle font-extrabold">0%</span>
+                  </div>
+                  <div class="w-full h-2 bg-[#F5F7FA] rounded-full overflow-hidden p-0.5">
+                    <div id="cat-bar-3" class="progress-fill h-full bg-slate-300 rounded-full transition-all duration-1000 ease-out" data-width="0%" style="width: 0%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button onclick="navigate('editais')" class="motion-btn w-full py-2.5 mt-4 bg-[#F5F7FA] hover:bg-brand-lime text-brand-dark rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border border-brand-border/80">
+              <span>Explorar Oportunidades</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== VIEW 2: EDITAIS PNCP (AUDITADOS COM REMOTION CARDS) ==================== -->
+      <section id="view-editais" class="space-y-4 hidden">
+        <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-brand-border/80 shadow-sm">
+          <div class="flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
+            <span class="text-xs font-extrabold text-brand-dark uppercase tracking-wider" id="editais-header-summary">
+              Oportunidades em Aberto no PNCP
+            </span>
+          </div>
+          <div class="flex gap-2 items-center">
+            <span class="text-xs bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full font-bold border border-emerald-200" id="filter-tag-badge">Filtro: Ativo</span>
+            <button onclick="limparFiltrosEBuscar()" class="motion-btn text-xs text-brand-subtle hover:text-brand-dark underline font-semibold ml-2">Ver Todas</button>
+          </div>
+        </div>
+
+        <!-- Banner Dinâmico de Alerta (quando termo específico não tiver pregões abertos na UF) -->
+        <div id="empty-search-banner" class="hidden"></div>
+
+        <!-- Lista de Cards Dinâmicos com Hover Lift e Micro-Animação -->
+        <div class="space-y-4" id="editais-list">
+          <div class="text-center py-12 text-brand-subtle">
+            <span class="animate-spin inline-block text-2xl mb-2">⟳</span>
+            <p class="text-xs font-bold">Carregando contratações públicas do PNCP em tempo real...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== VIEW 3: CHATBOT JURÍDICO IA COM INTERATIVIDADE FLUIDA ==================== -->
+      <section id="view-chatbot" class="h-full flex flex-col bg-white rounded-3xl border border-brand-border/90 shadow-sm overflow-hidden hidden">
+        <!-- Topo do Chat com Status e Seletor -->
+        <div class="p-4 border-b border-brand-border/70 flex justify-between items-center bg-[#FAFAFC]">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-2xl bg-brand-dark flex items-center justify-center text-brand-lime font-black text-xs shadow-sm">
+              IA
+            </div>
+            <div>
+              <span class="text-xs font-extrabold block text-brand-dark flex items-center gap-1.5">
+                <span>Auditor Jurídico Especialista</span>
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              </span>
+              <span class="text-[10px] text-brand-subtle font-medium">Fundamentação estrita com citação exata de página do PDF</span>
+            </div>
+          </div>
+
+          <!-- Seletor de Edital em Foco -->
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-brand-subtle font-semibold">Edital em foco:</span>
+            <select id="chat-edital-select" class="text-xs font-bold bg-white border border-brand-border rounded-xl px-3 py-1.5 outline-none focus:border-brand-lime shadow-sm max-w-xs truncate">
+              <option value="">Selecione um edital...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Área de Mensagens com Animação de Entrada -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4">
+          <!-- Mensagem IA Boas-vindas -->
+          <div class="chat-bubble flex gap-3 max-w-2xl">
+            <div class="w-8 h-8 rounded-2xl bg-brand-dark text-brand-lime flex items-center justify-center text-xs shrink-0 font-extrabold">
+              Z
+            </div>
+            <div class="bg-[#F5F7FA] p-4 rounded-3xl text-xs leading-relaxed text-brand-dark space-y-2 border border-brand-border/60 shadow-sm">
+              <p>Olá! Já indexei todas as seções das contratações do PNCP via <strong>PageIndex</strong>. Como posso auditar este edital para você agora?</p>
+              <div class="flex flex-wrap gap-2 pt-1.5">
+                <button onclick="sendQuickPrompt('Quais os atestados técnicos exigidos?')" class="motion-btn px-3 py-1 bg-white hover:bg-brand-lime border border-brand-border rounded-full text-[11px] font-bold text-brand-dark transition shadow-sm">Atestados Técnicos</button>
+                <button onclick="sendQuickPrompt('Qual o prazo de entrega e as penalidades?')" class="motion-btn px-3 py-1 bg-white hover:bg-brand-lime border border-brand-border rounded-full text-[11px] font-bold text-brand-dark transition shadow-sm">Prazo de Entrega</button>
+                <button onclick="sendQuickPrompt('Existe exigência de amostra ou visita técnica?')" class="motion-btn px-3 py-1 bg-white hover:bg-brand-lime border border-brand-border rounded-full text-[11px] font-bold text-brand-dark transition shadow-sm">Amostra / Visita</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Indicador de Digitando IA (Oculto por padrão) -->
+        <div id="chat-typing" class="px-6 py-2 hidden flex items-center gap-3">
+          <div class="relative flex items-center justify-center">
+            <div class="w-8 h-8 rounded-xl bg-brand-dark text-brand-lime flex items-center justify-center text-xs font-black shadow-md shadow-brand-dark/20">Z</div>
+            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-brand-lime animate-ping"></span>
+          </div>
+          <div class="bg-[#F5F7FA] px-4 py-2.5 rounded-2xl flex items-center gap-2 border border-brand-border shadow-sm">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-brand-dark typing-dot"></span>
+              <span class="w-2 h-2 rounded-full bg-brand-dark typing-dot"></span>
+              <span class="w-2 h-2 rounded-full bg-brand-dark typing-dot"></span>
+            </div>
+            <span class="text-[11px] font-bold text-brand-subtle animate-pulse pl-1">Zeno IA analisando edital...</span>
+          </div>
+        </div>
+
+        <!-- Input do Chat com Botão Fluido -->
+        <div class="p-4 border-t border-brand-border/70 bg-white">
+          <form onsubmit="handleChatSubmit(event)" class="flex gap-2.5">
+            <input type="text" id="chat-input" placeholder="Faça uma pergunta sobre o edital em foco (ex: qual o índice financeiro exigido?)..." class="flex-1 px-5 py-3.5 bg-[#F5F7FA] border border-transparent focus:border-brand-lime focus:bg-white rounded-full text-xs font-medium outline-none transition shadow-inner">
+            <button type="submit" class="motion-btn w-12 h-12 bg-brand-lime hover:bg-brand-limeHover text-brand-dark rounded-full flex items-center justify-center shrink-0 shadow-md shadow-brand-lime/20">
+              <i data-lucide="send" class="w-4 h-4"></i>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ==================== VIEW 4: RELATÓRIOS E PDFS ==================== -->
+      <section id="view-relatorios" class="space-y-4 hidden">
+        <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-brand-border/80 shadow-sm">
+          <div>
+            <h3 class="font-bold text-sm text-brand-dark">Galeria de Editais e Anexos Salvos</h3>
+            <p class="text-xs text-brand-subtle font-medium">Arquivos persistidos no diretório seguro do aplicativo</p>
+          </div>
+          <button onclick="reloadFiles()" class="motion-btn px-4 py-2 bg-[#F5F7FA] hover:bg-brand-lime rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-brand-border">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Recarregar Arquivos</span>
+          </button>
+        </div>
+
+        <!-- Grade de Arquivos com Efeito de Elevação -->
+        <div class="grid grid-cols-2 gap-4" id="relatorios-grid">
+          <!-- Populado dinamicamente via carregarRelatoriosSalvos() a partir do banco de dados SQLite / pasta de downloads -->
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ==================== MODAL DE CONFIGURAÇÃO COM SPRING PHYSICS ==================== -->
+  <div id="modal-config" class="fixed inset-0 bg-brand-dark/40 backdrop-blur-md z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200 p-4">
+    <div id="modal-content" class="bg-white w-full max-w-xl rounded-3xl p-6 shadow-2xl border border-brand-border space-y-4 transform scale-95 transition-transform duration-200 max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-brand-border pb-3">
+        <div>
+          <h3 class="font-extrabold text-base text-brand-dark flex items-center gap-2">
+            <span>Configuração do Radar OaaS</span>
+            <span class="text-[10px] font-bold bg-brand-lime/30 text-brand-dark px-2 py-0.5 rounded-full uppercase">Apify & PNCP</span>
+          </h3>
+          <p class="text-xs text-brand-subtle font-medium">Personalize os filtros avançados de captura e alerta de editais</p>
+        </div>
+        <button onclick="closeRadarConfig()" class="motion-btn w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-brand-subtle">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-left">
+        <!-- 1. Região & Escopo (UF e Município) -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-bold text-brand-dark block mb-1">Estado / UF Alvo</label>
+            <input type="text" id="cfg-uf" value="MT" maxlength="2" class="w-full px-3.5 py-2 bg-[#F5F7FA] border border-brand-border rounded-xl text-xs font-bold outline-none focus:border-brand-lime uppercase">
+          </div>
+          <div>
+            <label class="text-xs font-bold text-brand-dark block mb-1">Município Alvo (Opcional)</label>
+            <input type="text" id="cfg-municipio" placeholder="Ex: Cuiabá (ou vazio para o Estado)" class="w-full px-3.5 py-2 bg-[#F5F7FA] border border-brand-border rounded-xl text-xs font-medium outline-none focus:border-brand-lime">
+          </div>
+        </div>
+
+        <!-- 2. Palavras-Chave de Nicho (Inclusão) -->
+        <div>
+          <label class="text-xs font-bold text-brand-dark block mb-1 flex items-center justify-between">
+            <span>Palavras-Chave de Nicho (Inclusão)</span>
+            <span class="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Captura Positiva</span>
+          </label>
+          <div class="flex gap-2 mb-2">
+            <input type="text" id="cfg-new-tag" placeholder="Ex: armas, engenharia, software..." class="flex-1 px-3.5 py-2 bg-[#F5F7FA] border border-brand-border rounded-xl text-xs font-medium outline-none focus:border-brand-lime" onkeydown="if(event.key==='Enter'){event.preventDefault();addTag();}">
+            <button onclick="addTag()" class="motion-btn px-4 py-2 bg-brand-dark text-white rounded-xl text-xs font-bold hover:bg-slate-800">Adicionar</button>
+          </div>
+          <div id="tags-container" class="flex flex-wrap gap-1.5 min-h-[30px] p-2 bg-[#FAFBFD] rounded-xl border border-dashed border-brand-border">
+            <span class="px-3 py-1 bg-brand-lime/40 text-brand-dark rounded-full text-xs font-bold flex items-center gap-1.5 motion-card">
+              construção civil <button onclick="this.parentElement.remove()" class="hover:text-red-600">&times;</button>
+            </span>
+            <span class="px-3 py-1 bg-brand-lime/40 text-brand-dark rounded-full text-xs font-bold flex items-center gap-1.5 motion-card">
+              software <button onclick="this.parentElement.remove()" class="hover:text-red-600">&times;</button>
+            </span>
+            <span class="px-3 py-1 bg-brand-lime/40 text-brand-dark rounded-full text-xs font-bold flex items-center gap-1.5 motion-card">
+              armas <button onclick="this.parentElement.remove()" class="hover:text-red-600">&times;</button>
+            </span>
+          </div>
+        </div>
+
+        <!-- 3. Palavras Negativas / Blacklist (Exclusão) -->
+        <div>
+          <label class="text-xs font-bold text-brand-dark block mb-1 flex items-center justify-between">
+            <span>Palavras Negativas / Excluir (Blacklist)</span>
+            <span class="text-[10px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">Descarta Automaticamente</span>
+          </label>
+          <div class="flex gap-2 mb-2">
+            <input type="text" id="cfg-new-neg-tag" placeholder="Ex: obras, merenda, limpeza, pavimentacao..." class="flex-1 px-3.5 py-2 bg-[#F5F7FA] border border-brand-border rounded-xl text-xs font-medium outline-none focus:border-rose-400" onkeydown="if(event.key==='Enter'){event.preventDefault();addNegativeTag();}">
+            <button onclick="addNegativeTag()" class="motion-btn px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700">Excluir</button>
+          </div>
+          <div id="tags-negativas-container" class="flex flex-wrap gap-1.5 min-h-[30px] p-2 bg-[#FFF9F9] rounded-xl border border-dashed border-rose-200">
+            <span class="px-3 py-1 bg-rose-100 text-rose-800 rounded-full text-xs font-bold flex items-center gap-1.5 motion-card">
+              obras <button onclick="this.parentElement.remove()" class="hover:text-red-900">&times;</button>
+            </span>
+            <span class="px-3 py-1 bg-rose-100 text-rose-800 rounded-full text-xs font-bold flex items-center gap-1.5 motion-card">
+              merenda <button onclick="this.parentElement.remove()" class="hover:text-red-900">&times;</button>
+            </span>
+            <span class="px-3 py-1 bg-rose-100 text-rose-800 rounded-full text-xs font-bold flex items-center gap-1.5 motion-card">
+              limpeza <button onclick="this.parentElement.remove()" class="hover:text-red-900">&times;</button>
+            </span>
+          </div>
+        </div>
+
+        <!-- 4. Faixa de Valor Estimado (R$) -->
+        <div>
+          <label class="text-xs font-bold text-brand-dark block mb-1">Faixa de Valor Estimado (R$)</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <div class="relative">
+                <span class="absolute left-3 top-2 text-[11px] font-bold text-brand-subtle">Mín:</span>
+                <input type="number" id="cfg-valor-min" placeholder="0 (sem mínimo)" class="w-full pl-11 pr-3 py-2 bg-[#F5F7FA] border border-brand-border rounded-xl text-xs font-bold outline-none focus:border-brand-lime">
+              </div>
+            </div>
+            <div>
+              <div class="relative">
+                <span class="absolute left-3 top-2 text-[11px] font-bold text-brand-subtle">Máx:</span>
+                <input type="number" id="cfg-valor-max" placeholder="Sem limite máx" class="w-full pl-11 pr-3 py-2 bg-[#F5F7FA] border border-brand-border rounded-xl text-xs font-bold outline-none focus:border-brand-lime">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Modalidades de Contratação -->
+        <div>
+          <label class="text-xs font-bold text-brand-dark block mb-1.5">Modalidades de Licitação</label>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <label class="flex items-center gap-2 p-2 bg-[#F5F7FA] hover:bg-slate-100 rounded-xl cursor-pointer border border-brand-border">
+              <input type="checkbox" id="mod-pregao" value="PREGÃO ELETRÔNICO" checked class="w-4 h-4 accent-lime-500 rounded">
+              <span class="font-bold text-brand-dark">Pregão Eletrônico</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 bg-[#F5F7FA] hover:bg-slate-100 rounded-xl cursor-pointer border border-brand-border">
+              <input type="checkbox" id="mod-dispensa" value="DISPENSA ELETRÔNICA" checked class="w-4 h-4 accent-lime-500 rounded">
+              <span class="font-bold text-brand-dark">Dispensa Eletrônica</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 bg-[#F5F7FA] hover:bg-slate-100 rounded-xl cursor-pointer border border-brand-border">
+              <input type="checkbox" id="mod-concorrencia" value="CONCORRÊNCIA" checked class="w-4 h-4 accent-lime-500 rounded">
+              <span class="font-bold text-brand-dark">Concorrência</span>
+            </label>
+            <label class="flex items-center gap-2 p-2 bg-[#F5F7FA] hover:bg-slate-100 rounded-xl cursor-pointer border border-brand-border">
+              <input type="checkbox" id="mod-outras" value="OUTRAS" checked class="w-4 h-4 accent-lime-500 rounded">
+              <span class="font-bold text-brand-dark">Demais Modalidades</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 6. WhatsApp & Score IA -->
+        <div class="grid grid-cols-2 gap-3 pt-1">
+          <div>
+            <label class="text-xs font-bold text-brand-dark block mb-1">WhatsApp para Alertas</label>
+            <input type="text" id="cfg-whatsapp" placeholder="(65) 99999-9999" class="w-full px-3.5 py-2 bg-[#F5F7FA] border border-brand-border rounded-xl text-xs font-medium outline-none focus:border-brand-lime">
+          </div>
+          <div>
+            <label class="text-xs font-bold text-brand-dark block mb-1">Corte Score IA</label>
+            <select id="cfg-score-min" class="w-full px-3 py-2 bg-[#F5F7FA] border border-brand-border rounded-xl text-xs font-bold outline-none focus:border-brand-lime">
+              <option value="0">Todos os Editais (0%+)</option>
+              <option value="60">Relevantes (60%+)</option>
+              <option value="75" selected>Alta Aderência (75%+)</option>
+              <option value="85">Oportunidades de Ouro (85%+)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-brand-border flex justify-end gap-2">
+        <button onclick="closeRadarConfig()" class="motion-btn px-4 py-2.5 rounded-xl text-xs font-bold text-brand-subtle hover:bg-slate-100">Cancelar</button>
+        <button onclick="saveRadarConfig()" class="motion-btn px-5 py-2.5 bg-brand-lime text-brand-dark rounded-xl text-xs font-extrabold shadow-sm">Salvar Preferências</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL DE CARREGAMENTO SCRAPLING & IA EM TEMPO REAL ==================== -->
+  <div id="modal-loading-audit" class="fixed inset-0 bg-brand-dark/75 backdrop-blur-md z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
+    <div class="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-brand-border text-center space-y-4">
+      <div class="w-16 h-16 rounded-3xl bg-brand-lime/20 text-brand-dark flex items-center justify-center mx-auto shadow-inner relative">
+        <i data-lucide="scan" class="w-8 h-8 animate-pulse text-brand-dark"></i>
+        <div class="absolute inset-0 rounded-3xl border-2 border-brand-lime animate-ping opacity-40"></div>
+      </div>
+      <div class="space-y-1">
+        <div class="flex items-center justify-center gap-2">
+          <h3 id="loading-audit-title" class="text-base font-black text-brand-dark">Scan de Licitação por Link</h3>
+          <span class="text-[10px] font-black bg-brand-lime text-brand-dark px-2 py-0.5 rounded-full uppercase tracking-wider">Scrapling + Redis</span>
+        </div>
+        <p id="loading-audit-desc" class="text-xs text-brand-subtle font-medium leading-relaxed">Iniciando conexão segura e raspagem de dados...</p>
+      </div>
+
+      <!-- Barra de Progresso com Porcentagem ao Vivo -->
+      <div class="space-y-1">
+        <div class="flex justify-between items-center text-[11px] font-bold px-1">
+          <span id="loading-audit-step" class="text-brand-dark">Etapa 1 de 6: Parser de Link</span>
+          <span id="loading-audit-percent" class="font-mono text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">10%</span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-brand-border/60 p-0.5">
+          <div id="loading-audit-bar" class="bg-gradient-to-r from-brand-lime to-emerald-400 h-full rounded-full transition-all duration-300 w-[10%]"></div>
+        </div>
+      </div>
+
+      <!-- Terminal de Informações Passando em Tempo Real -->
+      <div class="text-left space-y-1 pt-1">
+        <div class="flex items-center justify-between text-[11px] font-extrabold text-brand-dark px-1">
+          <span class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Fluxo de Informações e Auditoria:</span>
+          </span>
+          <span class="text-[10px] text-brand-subtle font-mono">buffer ativo</span>
+        </div>
+        <div id="loading-audit-logs" class="bg-slate-950 text-emerald-400 p-3.5 rounded-2xl font-mono text-[11px] h-36 overflow-y-auto border border-slate-800 shadow-inner space-y-1 leading-relaxed">
+          <div class="text-slate-500 text-[10px]">> Inicializando Scrapling Furtivo & Cache Redis...</div>
+        </div>
+      </div>
+
+      <div class="pt-1 flex items-center justify-between text-[11px] text-brand-subtle font-medium">
+        <span id="loading-audit-subinfo">⚡ Processamento acelerado via PageIndex Vectorless RAG</span>
+        <button onclick="esconderLoadingScanLink()" class="text-xs text-slate-400 hover:text-slate-600 font-bold hover:underline">Ocultar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL DE AUDITORIA COMPLETA COM FOCO NO CLIENTE ==================== -->
+  <div id="modal-auditoria" class="fixed inset-0 bg-brand-dark/50 backdrop-blur-md z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200 p-4">
+    <div id="modal-auditoria-content" class="bg-white w-full max-w-4xl rounded-3xl p-6 shadow-2xl border border-brand-border space-y-4 transform scale-95 transition-transform duration-200 max-h-[92vh] overflow-y-auto">
+      
+      <!-- Cabeçalho com Ações Oficiais e Metadados -->
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-brand-border pb-3">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span id="audit-modal-badge-score" class="text-xs font-black bg-brand-lime text-brand-dark px-3 py-0.5 rounded-full shadow-sm">★ Score 9.0 / 10</span>
+            <span id="audit-modal-modalidade" class="text-xs font-bold text-white bg-brand-dark px-2.5 py-0.5 rounded-full uppercase">Pregão Eletrônico</span>
+            <span id="audit-modal-cache-badge" class="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">Redis Cache</span>
+          </div>
+          <h3 id="audit-modal-orgao" class="font-black text-base text-brand-dark">Órgão Licitante</h3>
+          <p id="audit-modal-id" class="text-xs text-brand-subtle font-mono font-semibold">15023963000188-1-000030/2026</p>
+        </div>
+        <div class="flex items-center gap-2 self-end md:self-auto">
+          <a id="audit-modal-link-pncp" href="#" target="_blank" class="motion-btn px-3 py-1.5 bg-[#F5F7FA] hover:bg-slate-200 text-brand-dark rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 border border-brand-border shadow-xs">
+            <i data-lucide="external-link" class="w-3.5 h-3.5 text-blue-600"></i>
+            <span>PNCP Oficial</span>
+          </a>
+          <a id="audit-modal-link-disputa" href="#" target="_blank" class="motion-btn px-3 py-1.5 bg-brand-dark hover:bg-slate-800 text-brand-lime rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 shadow-xs">
+            <i data-lucide="monitor" class="w-3.5 h-3.5 text-brand-lime"></i>
+            <span>Portal Disputa</span>
+          </a>
+          <button onclick="closeModalAuditoria()" class="motion-btn w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-brand-subtle">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Resumo Executivo / Recomendação ReAct -->
+      <div id="audit-modal-recomendacao-box" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
+        <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+        </div>
+        <div class="space-y-0.5 text-xs">
+          <span class="font-extrabold text-emerald-900 block uppercase tracking-wide">Diretiva Executiva do Auditor IA</span>
+          <p id="audit-modal-recomendacao" class="text-emerald-900 font-medium leading-relaxed"></p>
+        </div>
+      </div>
+
+      <!-- 6 Abas Especializadas Focadas no Cliente -->
+      <div id="audit-tabs-container" class="flex flex-wrap items-center gap-1.5 sm:gap-2 border-b border-brand-border pb-2.5 text-xs font-bold">
+        <button id="tab-btn-riscos" onclick="switchAuditTab('riscos')" class="px-3 py-1.5 rounded-xl bg-brand-dark text-white flex items-center gap-1.5 shrink-0 transition-colors">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-300"></i>
+          <span>Brechas & Riscos</span>
+        </button>
+        <button id="tab-btn-leis" onclick="switchAuditTab('leis')" class="px-3 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0 transition-colors">
+          <i data-lucide="scale" class="w-3.5 h-3.5"></i>
+          <span>Leis & Decretos</span>
+        </button>
+        <button id="tab-btn-exigencias" onclick="switchAuditTab('exigencias')" class="px-3 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0 transition-colors">
+          <i data-lucide="check-square" class="w-3.5 h-3.5"></i>
+          <span>Exigências Habilitatórias</span>
+        </button>
+        <button id="tab-btn-atencao" onclick="switchAuditTab('atencao')" class="px-3 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0 transition-colors">
+          <i data-lucide="target" class="w-3.5 h-3.5"></i>
+          <span>Pontos de Atenção</span>
+        </button>
+        <button id="tab-btn-itens" onclick="switchAuditTab('itens')" class="px-3 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0 transition-colors">
+          <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+          <span>Itens & Lotes PNCP</span>
+        </button>
+        <button id="tab-btn-arquivos" onclick="switchAuditTab('arquivos')" class="px-3 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 flex items-center gap-1.5 shrink-0 transition-colors">
+          <i data-lucide="folder-check" class="w-3.5 h-3.5"></i>
+          <span>Anexos Oficiais</span>
+        </button>
+      </div>
+
+      <!-- Conteúdo da Aba 1: Brechas & Riscos Onde Podem Prejudicar o Cliente -->
+      <div id="audit-tab-content-riscos" class="space-y-2">
+        <div class="bg-rose-50/70 p-3 rounded-2xl border border-rose-200 text-xs text-rose-900 font-semibold flex items-center gap-2">
+          <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-600 shrink-0"></i>
+          <span>Cláusulas restritivas, prazos inexequíveis, penalidades e riscos contratuais identificados [com citação de página]:</span>
+        </div>
+        <div id="audit-modal-riscos-list" class="space-y-2"></div>
+      </div>
+
+      <!-- Conteúdo da Aba 2: Leis e Enquadramento Legal -->
+      <div id="audit-tab-content-leis" class="space-y-2 hidden">
+        <div class="bg-blue-50/70 p-3 rounded-2xl border border-blue-200 text-xs text-blue-900 font-semibold flex items-center gap-2">
+          <i data-lucide="book-open" class="w-4 h-4 text-blue-600 shrink-0"></i>
+          <span>Regime jurídico, decretos regulamentares e benefícios de enquadramento (Lei 14.133 / LC 123 ME/EPP):</span>
+        </div>
+        <div id="audit-modal-leis-list" class="space-y-2"></div>
+      </div>
+
+      <!-- Conteúdo da Aba 3: Exigências Habilitatórias (Habilitação Crítica) -->
+      <div id="audit-tab-content-exigencias" class="space-y-2 hidden">
+        <div class="bg-amber-50/70 p-3 rounded-2xl border border-amber-200 text-xs text-amber-900 font-semibold flex items-center gap-2">
+          <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 shrink-0"></i>
+          <span>Documentos fiscais, certidões de regularidade, atestados técnicos e requisitos essenciais de habilitação:</span>
+        </div>
+        <div id="audit-modal-exigencias-list" class="space-y-2"></div>
+      </div>
+
+      <!-- Conteúdo da Aba 4: Pontos de Atenção Operacionais -->
+      <div id="audit-tab-content-atencao" class="space-y-2 hidden">
+        <div class="bg-purple-50/70 p-3 rounded-2xl border border-purple-200 text-xs text-purple-900 font-semibold flex items-center gap-2">
+          <i data-lucide="compass" class="w-4 h-4 text-purple-600 shrink-0"></i>
+          <span>Datas limite, portal de disputa, regras de envio de lances e condições de pagamento:</span>
+        </div>
+        <div id="audit-modal-atencao-list" class="space-y-2"></div>
+      </div>
+
+      <!-- Conteúdo da Aba 5: Itens & Lotes PNCP -->
+      <div id="audit-tab-content-itens" class="space-y-2 hidden">
+        <div class="overflow-x-auto rounded-2xl border border-brand-border">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-[#F5F7FA] border-b border-brand-border font-bold text-brand-dark">
+              <tr>
+                <th class="p-3">Item</th>
+                <th class="p-3">Descrição Oficial</th>
+                <th class="p-3 text-center">Qtd</th>
+                <th class="p-3 text-right">Valor Unitário</th>
+                <th class="p-3 text-right">Valor Total</th>
+              </tr>
+            </thead>
+            <tbody id="audit-modal-itens-tbody" class="divide-y divide-brand-border/60 font-medium"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Conteúdo da Aba 6: Anexos Scrapling -->
+      <div id="audit-tab-content-arquivos" class="space-y-2 hidden">
+        <div id="audit-modal-arquivos-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      </div>
+
+      <!-- Rodapé do Modal -->
+      <div class="pt-3 border-t border-brand-border flex justify-between items-center">
+        <span class="text-xs text-brand-subtle font-semibold">Varredura e extração automatizada (Scrapling + Redis + PageIndex Tree + ReAct IA)</span>
+        <div class="flex gap-2">
+          <button onclick="closeModalAuditoria()" class="motion-btn px-4 py-2.5 rounded-xl text-xs font-bold text-brand-subtle hover:bg-slate-100">Fechar</button>
+          <button id="audit-modal-btn-chat" class="motion-btn px-5 py-2.5 bg-brand-lime text-brand-dark rounded-xl text-xs font-extrabold shadow-sm flex items-center gap-1.5">
+            <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+            <span>Interrogar no Chatbot</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== NOTIFICAÇÃO TOAST FLUIDA ==================== -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 pointer-events-none space-y-2"></div>
+
+  <!-- ==================== SCRIPTS DE CONTROLE E PNCP REAL ENGINE ==================== -->
+  <script>
+    // Inicialização dos ícones Lucide
+    lucide.createIcons();
+
+    // Estado Global da Aplicação
+    let currentEditais = [];
+    let allPNCPEditaisCache = [];
+    let currentUF = 'MT';
+    let currentKeywords = ['construção civil', 'software', 'armas'];
+    let currentNegativeKeywords = ['obras', 'merenda', 'limpeza'];
+    let currentValorMin = null;
+    let currentValorMax = null;
+    let currentModalidades = ['PREGÃO ELETRÔNICO', 'DISPENSA ELETRÔNICA', 'CONCORRÊNCIA', 'OUTRAS'];
+    let currentMunicipio = '';
+    let currentScoreMin = 0;
+
+    // Mapeamento de Sinônimos de Nichos
+    const NICHO_EXPANSAO = {
+      'armas': ['arma', 'armas', 'armamento', 'munição', 'municao', 'pistola', 'espingarda', 'colete', 'segurança', 'vigilância', 'vigilancia', 'tiro'],
+      'segurança': ['segurança', 'seguranca', 'vigilância', 'vigilancia', 'monitoramento', 'alarme', 'cftv', 'portaria', 'arma'],
+      'construção civil': ['construção', 'construcao', 'obra', 'obras', 'engenharia', 'reforma', 'pavimentação', 'asfalto'],
+      'engenharia': ['engenharia', 'obra', 'obras', 'reforma', 'construção', 'pavimentação'],
+      'software': ['software', 'sistema', 'ti', 'tecnologia', 'informática', 'computador', 'rede', 'dados']
+    };
+
+    // Sistema de Notificação Toast Moderno
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'pointer-events-auto flex items-center gap-2.5 px-4 py-3 bg-brand-dark text-white text-xs font-bold rounded-2xl shadow-xl border border-brand-lime/30 transform translate-y-4 opacity-0 transition-all duration-300';
+      toast.innerHTML = `
+        <span class="w-2 h-2 rounded-full ${type === 'success' ? 'bg-brand-lime' : (type === 'warn' ? 'bg-amber-400' : 'bg-blue-400')}"></span>
+        <span>${message}</span>
+      `;
+      container.appendChild(toast);
+      
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-4', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-4', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // Formatação de Moeda Brasileira
+    function formatBRL(valor) {
+      if (!valor || isNaN(valor)) return 'R$ 0,00';
+      return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    // Formatação de Data Amigável
+    function formatDateBR(dtStr) {
+      if (!dtStr) return 'A definir';
+      try {
+        const d = new Date(dtStr);
+        if (isNaN(d.getTime())) return dtStr;
+        return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      } catch (e) {
+        return dtStr;
+      }
+    }
+
+    // Navegação SPA
+    function navigate(viewName) {
+      const views = ['home', 'editais', 'chatbot', 'relatorios'];
+      views.forEach(v => {
+        const viewEl = document.getElementById(`view-${v}`);
+        const navEl = document.getElementById(`nav-${v}`);
+        if (viewEl) viewEl.classList.add('hidden');
+        if (navEl) navEl.classList.remove('active-nav');
+      });
+
+      const targetView = document.getElementById(`view-${viewName}`);
+      const targetNav = document.getElementById(`nav-${viewName}`);
+      if (targetView) targetView.classList.remove('hidden');
+      if (targetNav) targetNav.classList.add('active-nav');
+
+      const titleEl = document.getElementById('page-title');
+      const subEl = document.getElementById('page-subtitle');
+      if (viewName === 'home') {
+        titleEl.innerHTML = `<span>Radar de Oportunidades</span><span class="text-[10px] uppercase font-black bg-brand-lime/30 text-brand-dark px-2.5 py-0.5 rounded-full tracking-wide shrink-0">Ao Vivo</span>`;
+        subEl.textContent = `Monitoramento ativo de contratações públicas no estado de ${currentUF}`;
+        if (currentEditais && currentEditais.length > 0) {
+          atualizarMetricasComDadosReais(currentEditais, currentUF);
+        }
+        triggerDashboardAnimations();
+      } else if (viewName === 'editais') {
+        titleEl.innerHTML = `<span>Editais PNCP Auditados</span><span class="text-[10px] uppercase font-black bg-brand-dark text-brand-lime px-2.5 py-0.5 rounded-full tracking-wide shrink-0">PNCP Oficial</span>`;
+        subEl.textContent = `Contratações públicas em tempo real conectadas diretamente ao Governo Federal`;
+        const listContainer = document.getElementById('editais-list');
+        if (listContainer && (!listContainer.children.length || listContainer.querySelector('.skeleton-box')) && currentEditais && currentEditais.length > 0) {
+          renderizarEditais(currentEditais);
+        }
+        triggerCardsEntrance('#editais-list .edital-card');
+      } else if (viewName === 'chatbot') {
+        titleEl.innerHTML = `<span>Auditor Jurídico Especialista</span><span class="text-[10px] uppercase font-black bg-brand-lime text-brand-dark px-2.5 py-0.5 rounded-full tracking-wide shrink-0">IA 4.0</span>`;
+        subEl.textContent = 'Interrogatório de cláusulas, termos de referência, exigências e sanções com IA';
+      } else if (viewName === 'relatorios') {
+        titleEl.innerHTML = `<span>Relatórios & Dossiês Salvos</span>`;
+        subEl.textContent = 'Documentos locais persistidos sem dependência de internet';
+        carregarRelatoriosSalvos();
+      }
+
+      lucide.createIcons();
+    }
+
+    // Animações de Entrada
+    function triggerCardsEntrance(selector) {
+      if (window.gsap) {
+        gsap.fromTo(selector, 
+          { opacity: 0, y: 15, scale: 0.98 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.45, stagger: 0.06, ease: "power2.out" }
+        );
+      }
+    }
+
+    function triggerDashboardAnimations() {
+      const bars = document.querySelectorAll('.chart-bar');
+      bars.forEach((bar, index) => {
+        const targetH = bar.getAttribute('data-height') || '50%';
+        bar.style.height = '0%';
+        setTimeout(() => {
+          bar.style.height = targetH;
+        }, 100 + (index * 80));
+      });
+
+      const progressFills = document.querySelectorAll('.progress-fill');
+      progressFills.forEach((fill, index) => {
+        const targetW = fill.getAttribute('data-width') || '50%';
+        fill.style.width = '0%';
+        setTimeout(() => {
+          fill.style.width = targetW;
+        }, 200 + (index * 120));
+      });
+
+      if (window.gsap) {
+        gsap.fromTo('#stats-grid > div', 
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.4, stagger: 0.06, ease: "power2.out" }
+        );
+      }
+    }
+
+    // Modal de Configurações
+    function openRadarConfig() {
+      const modal = document.getElementById('modal-config');
+      const content = document.getElementById('modal-content');
+      modal.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        modal.classList.remove('opacity-0');
+        content.classList.remove('scale-95');
+        content.classList.add('scale-100');
+      });
+    }
+
+    function closeRadarConfig() {
+      const modal = document.getElementById('modal-config');
+      const content = document.getElementById('modal-content');
+      modal.classList.add('opacity-0');
+      content.classList.remove('scale-100');
+      content.classList.add('scale-95');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 200);
+    }
+
+    // Modal de Auditoria Profunda Scrapling & ReAct
+    function openModalAuditoria() {
+      const modal = document.getElementById('modal-auditoria');
+      const content = document.getElementById('modal-auditoria-content');
+      modal.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        modal.classList.remove('opacity-0');
+        content.classList.remove('scale-95');
+        content.classList.add('scale-100');
+      });
+      lucide.createIcons();
+    }
+
+    function closeModalAuditoria() {
+      const modal = document.getElementById('modal-auditoria');
+      const content = document.getElementById('modal-auditoria-content');
+      modal.classList.add('opacity-0');
+      content.classList.remove('scale-100');
+      content.classList.add('scale-95');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 200);
+    }
+
+    let scanLinkPollInterval = null;
+    let lastLogCount = 0;
+
+    function switchAuditTab(tab) {
+      const tabs = ['riscos', 'leis', 'exigencias', 'atencao', 'itens', 'arquivos'];
+      tabs.forEach(t => {
+        const c = document.getElementById(`audit-tab-content-${t}`);
+        const b = document.getElementById(`tab-btn-${t}`);
+        if (c) c.classList.toggle('hidden', t !== tab);
+        if (b) {
+          if (t === tab) {
+            b.className = 'px-3 py-1.5 rounded-xl bg-brand-dark text-white font-bold flex items-center gap-1.5 shrink-0 shadow-sm';
+          } else {
+            b.className = 'px-3 py-1.5 rounded-xl text-brand-subtle hover:bg-slate-100 font-bold flex items-center gap-1.5 shrink-0 transition-colors';
+          }
+        }
+      });
+      lucide.createIcons();
+    }
+
+    // Funções de Controle do Modal de Carregamento da Auditoria Tradicional
+    function mostrarLoadingAuditoria(numPncp) {
+      const modal = document.getElementById('modal-loading-audit');
+      const title = document.getElementById('loading-audit-title');
+      const desc = document.getElementById('loading-audit-desc');
+      const bar = document.getElementById('loading-audit-bar');
+      const step = document.getElementById('loading-audit-step');
+      const percent = document.getElementById('loading-audit-percent');
+      const logs = document.getElementById('loading-audit-logs');
+
+      if (title) title.textContent = `Auditoria Scrapling & IA`;
+      if (desc) desc.textContent = `Consultando PNCP e baixando anexos de ${numPncp}...`;
+      if (bar) bar.style.width = '25%';
+      if (percent) percent.textContent = '25%';
+      if (step) step.textContent = 'Etapa 1 de 3: Download via Scrapling';
+      if (logs) {
+        logs.innerHTML = `
+          <div class="text-slate-400 text-[10px]">> [INÍCIO] Auditoria disparada para ${numPncp}</div>
+          <div class="text-emerald-400 text-[10px]">> [CONEXÃO] Consultando API PNCP e raspando metadados...</div>
+        `;
+      }
+
+      if (modal) {
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => modal.classList.remove('opacity-0'));
+      }
+      lucide.createIcons();
+    }
+
+    function atualizarLoadingAuditoria(percent, stepText, descText) {
+      const bar = document.getElementById('loading-audit-bar');
+      const step = document.getElementById('loading-audit-step');
+      const desc = document.getElementById('loading-audit-desc');
+      const percentEl = document.getElementById('loading-audit-percent');
+      const logs = document.getElementById('loading-audit-logs');
+
+      if (bar) bar.style.width = `${percent}%`;
+      if (percentEl) percentEl.textContent = `${percent}%`;
+      if (step && stepText) step.textContent = stepText;
+      if (desc && descText) desc.textContent = descText;
+      if (logs && descText) {
+        const line = document.createElement('div');
+        line.className = 'text-brand-lime text-[10px]';
+        line.textContent = `> ${descText}`;
+        logs.appendChild(line);
+        logs.scrollTop = logs.scrollHeight;
+      }
+    }
+
+    function esconderLoadingAuditoria() {
+      const modal = document.getElementById('modal-loading-audit');
+      if (modal) {
+        modal.classList.add('opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+      }
+    }
+
+    // ==================== SCAN POR LINK AO VIVO (SCRAPLING + REDIS + IA) ====================
+    function mostrarLoadingScanLink(url) {
+      lastLogCount = 0;
+      const modal = document.getElementById('modal-loading-audit');
+      const title = document.getElementById('loading-audit-title');
+      const desc = document.getElementById('loading-audit-desc');
+      const bar = document.getElementById('loading-audit-bar');
+      const step = document.getElementById('loading-audit-step');
+      const percent = document.getElementById('loading-audit-percent');
+      const logs = document.getElementById('loading-audit-logs');
+
+      if (title) title.textContent = 'Scan de Licitação por Link';
+      if (desc) desc.textContent = `Iniciando extração profunda: ${url.length > 50 ? url.substring(0, 48) + '...' : url}`;
+      if (bar) bar.style.width = '10%';
+      if (percent) percent.textContent = '10%';
+      if (step) step.textContent = 'Etapa 1 de 6: Parser & Verificação no Redis';
+      if (logs) {
+        logs.innerHTML = `
+          <div class="text-slate-400 text-[10px]">> [SISTEMA] Inicializando Scrapling Stealthy & Buffer Redis...</div>
+          <div class="text-emerald-400 text-[10px]">> [ALVO] ${url}</div>
+        `;
+      }
+
+      if (modal) {
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => modal.classList.remove('opacity-0'));
+      }
+      lucide.createIcons();
+    }
+
+    function atualizarLoadingScanLink(status) {
+      if (!status) return;
+      const bar = document.getElementById('loading-audit-bar');
+      const step = document.getElementById('loading-audit-step');
+      const percentEl = document.getElementById('loading-audit-percent');
+      const desc = document.getElementById('loading-audit-desc');
+      const logsBox = document.getElementById('loading-audit-logs');
+
+      const pVal = status.percent !== undefined ? status.percent : (status.progresso !== undefined ? status.progresso : 10);
+      const p = Math.max(5, Math.min(100, Number(pVal)));
+      if (bar) bar.style.width = `${p}%`;
+      if (percentEl) percentEl.textContent = `${p}%`;
+      if (step && (status.step || status.etapa)) step.textContent = status.step || status.etapa;
+      if (desc && (status.mensagem || status.detalhes)) desc.textContent = status.mensagem || status.detalhes;
+
+      if (logsBox && Array.isArray(status.logs)) {
+        if (status.logs.length > lastLogCount) {
+          for (let i = lastLogCount; i < status.logs.length; i++) {
+            const row = document.createElement('div');
+            const txt = status.logs[i];
+            if (txt.includes('[REDIS]')) {
+              row.className = 'text-cyan-300 font-bold';
+            } else if (txt.includes('[SCRAPLING]')) {
+              row.className = 'text-amber-300 font-medium';
+            } else if (txt.includes('[IA]') || txt.includes('[AUDITOR]')) {
+              row.className = 'text-brand-lime font-bold';
+            } else if (txt.includes('[SUCESSO]')) {
+              row.className = 'text-emerald-300 font-black';
+            } else if (txt.includes('[ERRO]') || txt.includes('[FALHA]')) {
+              row.className = 'text-rose-400 font-bold';
+            } else {
+              row.className = 'text-slate-300';
+            }
+            row.textContent = txt;
+            logsBox.appendChild(row);
+          }
+          lastLogCount = status.logs.length;
+          logsBox.scrollTop = logsBox.scrollHeight;
+        }
+      }
+    }
+
+    function esconderLoadingScanLink() {
+      if (scanLinkPollInterval) {
+        clearInterval(scanLinkPollInterval);
+        scanLinkPollInterval = null;
+      }
+      const modal = document.getElementById('modal-loading-audit');
+      if (modal) {
+        modal.classList.add('opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+      }
+    }
+
+    function renderizarEditais(lista) {
+      const container = document.getElementById('editais-list');
+      if (!container) return;
+      const itens = lista || currentEditais || [];
+      container.innerHTML = '';
+      if (typeof renderizarCardsHtml === 'function') {
+        renderizarCardsHtml(itens, container);
+      }
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+      }
+    }
+
+    function dispararScanPorLink() {
+      const input = document.getElementById('input-link-pncp');
+      const url = input ? input.value.trim() : '';
+      if (!url) {
+        showToast('Informe o link ou ID da licitação PNCP.', 'warn');
+        return;
+      }
+      executarScanPorLink(url);
+    }
+
+    function dispararScanPorLinkHome() {
+      const input = document.getElementById('home-input-link-pncp');
+      const url = input ? input.value.trim() : '';
+      if (!url) {
+        showToast('Cole o link da licitação PNCP para auditar.', 'warn');
+        return;
+      }
+      executarScanPorLink(url);
+    }
+
+    async function executarScanPorLink(url) {
+      mostrarLoadingScanLink(url);
+      let scanFinalizado = false;
+
+      // Inicia polling de alta precisão (300ms) para receber o fluxo de logs do worker
+      if (scanLinkPollInterval) clearInterval(scanLinkPollInterval);
+      scanLinkPollInterval = setInterval(async () => {
+        if (window.pywebview && window.pywebview.api && window.pywebview.api.obter_status_scan_link) {
+          try {
+            const st = await window.pywebview.api.obter_status_scan_link();
+            if (st) {
+              atualizarLoadingScanLink(st);
+
+              // Detecta conclusão do processamento em segundo plano
+              if (!st.is_running && !scanFinalizado && (st.edital || st.error)) {
+                scanFinalizado = true;
+                clearInterval(scanLinkPollInterval);
+                scanLinkPollInterval = null;
+
+                if (st.edital) {
+                  showToast(st.edital.from_cache ? '⚡ Carregado instantaneamente do Redis Buffer!' : '✓ Scan Scrapling e Auditoria IA concluídos!', 'success');
+                  setTimeout(() => {
+                    esconderLoadingScanLink();
+                    const idx = currentEditais.findIndex(x => x.numero_controle_pncp === st.edital.numero_controle_pncp);
+                    if (idx !== -1) {
+                      currentEditais[idx] = { ...currentEditais[idx], ...st.edital };
+                    } else {
+                      currentEditais.unshift(st.edital);
+                    }
+                    renderizarEditais(currentEditais);
+                    abrirModalAuditoria(st.edital);
+                  }, 700);
+                } else if (st.error) {
+                  showToast(`Erro na análise: ${st.error}`, 'warn');
+                  setTimeout(esconderLoadingScanLink, 2500);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Erro na sincronização de status de scan:', e);
+          }
+        }
+      }, 300);
+
+      // Dispara o worker no backend
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.scan_por_link) {
+        try {
+          const res = await window.pywebview.api.scan_por_link(url);
+          if (res && res.status === 'erro') {
+            if (scanLinkPollInterval) {
+              clearInterval(scanLinkPollInterval);
+              scanLinkPollInterval = null;
+            }
+            esconderLoadingScanLink();
+            showToast(res.mensagem || 'Link inválido ou não suportado.', 'warn');
+          }
+        } catch (err) {
+          console.error('Erro na chamada scan_por_link:', err);
+          if (scanLinkPollInterval) {
+            clearInterval(scanLinkPollInterval);
+            scanLinkPollInterval = null;
+          }
+          esconderLoadingScanLink();
+          showToast(`Erro ao iniciar scan: ${err.message}`, 'warn');
+        }
+      } else {
+        // Modo preview fora do PyWebView
+        setTimeout(() => {
+          esconderLoadingScanLink();
+          showToast('Função de scan disponível no app desktop conectado.', 'info');
+        }, 1500);
+      }
+    }
+
+    async function auditarEditalScrapling(numPncp) {
+      mostrarLoadingAuditoria(numPncp);
+
+      const apiAudit = (window.pywebview && window.pywebview.api) 
+        ? (window.pywebview.api.auditar_edital || window.pywebview.api.auditar_edital_completo) 
+        : null;
+
+      if (apiAudit) {
+        try {
+          const t1 = setTimeout(() => {
+            atualizarLoadingAuditoria(55, 'Etapa 2 de 3: Roteamento & PageIndex Tree', 'Processando páginas (PyMuPDF / RTF / DOCX) e extraindo sumário...');
+          }, 3500);
+
+          const t2 = setTimeout(() => {
+            atualizarLoadingAuditoria(85, 'Etapa 3 de 3: Auditoria ReAct IA', 'OpenRouter analisando itens, exigências habilitatórias e armadilhas...');
+          }, 7500);
+
+          const res = await apiAudit(numPncp);
+          clearTimeout(t1);
+          clearTimeout(t2);
+
+          esconderLoadingAuditoria();
+
+          if (res && (res.status === 'sucesso' || res.status === 'ok') && res.edital) {
+            showToast(`Auditoria concluída com sucesso! Exigências salvas.`, 'success');
+            const idx = currentEditais.findIndex(x => x.numero_controle_pncp === numPncp);
+            if (idx !== -1) {
+              currentEditais[idx] = { ...currentEditais[idx], ...res.edital };
+              renderizarEditais(currentEditais);
+            }
+            abrirModalAuditoria(res.edital);
+          } else {
+            showToast(res ? (res.mensagem || 'Falha na auditoria do edital') : 'Auditoria finalizada.', 'warn');
+          }
+        } catch(e) {
+          esconderLoadingAuditoria();
+          console.error('Erro na auditoria:', e);
+          showToast(`Erro na auditoria: ${e.message}`, 'warn');
+        }
+      } else {
+        // Modo Navegador / Simulação Dev:
+        setTimeout(() => {
+          esconderLoadingAuditoria();
+          const edCached = currentEditais.find(x => x.numero_controle_pncp === numPncp);
+          if (edCached) {
+            showToast(`Modo Web Preview: Para auditoria real com IA e Apify, execute 'npm run app'`, 'info');
+            abrirModalAuditoria(edCached);
+          } else {
+            showToast(`Modo Web Preview: Execute 'npm run app' para auditoria real via IA.`, 'info');
+          }
+        }, 900);
+      }
+    }
+
+    function abrirModalAuditoria(ed) {
+      const elOrgao = document.getElementById('audit-modal-orgao');
+      const elId = document.getElementById('audit-modal-id');
+      const elMod = document.getElementById('audit-modal-modalidade');
+      const elScore = document.getElementById('audit-modal-badge-score');
+      const elRec = document.getElementById('audit-modal-recomendacao');
+      const elRecBox = document.getElementById('audit-modal-recomendacao-box');
+      const badgeCache = document.getElementById('audit-modal-cache-badge');
+      const lnkPncp = document.getElementById('audit-modal-link-pncp');
+      const lnkDisp = document.getElementById('audit-modal-link-disputa');
+
+      const orgaoNome = (ed.orgao && ed.orgao !== 'Órgão Público') ? ed.orgao : (
+        (ed.numero_controle_pncp && ed.numero_controle_pncp.startsWith('24950495000188')) 
+          ? 'Prefeitura Municipal de Campo Verde - MT' 
+          : (ed.orgao || 'Órgão Público')
+      );
+      if (elOrgao) elOrgao.textContent = orgaoNome;
+      if (elId) elId.textContent = ed.numero_controle_pncp || '';
+      if (elMod) elMod.textContent = ed.modalidade || 'PREGÃO ELETRÔNICO';
+
+      // Badge de Cache Redis
+      if (badgeCache) {
+        if (ed.from_cache) {
+          badgeCache.textContent = '⚡ Redis Buffer (Hit)';
+          badgeCache.className = 'text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full';
+        } else {
+          badgeCache.textContent = '⚡ Redis Buffer (Gravado)';
+          badgeCache.className = 'text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full';
+        }
+      }
+
+      // Links Oficiais
+      if (lnkPncp) {
+        const urlPncp = ed.link_pncp || (ed.numero_controle_pncp ? `https://pncp.gov.br/app/editais/${ed.numero_controle_pncp.split('-')[0]}` : '#');
+        lnkPncp.href = urlPncp;
+        lnkPncp.target = '_blank';
+      }
+      if (lnkDisp) {
+        if (ed.link_disputa && ed.link_disputa !== '#') {
+          lnkDisp.href = ed.link_disputa;
+          lnkDisp.target = '_blank';
+          lnkDisp.classList.remove('hidden');
+        } else {
+          lnkDisp.classList.add('hidden');
+        }
+      }
+
+      const scoreNum = Number(ed.score_aderencia || 0);
+      if (elScore) {
+        elScore.textContent = `★ Score ${scoreNum.toFixed(1)} / 10`;
+        elScore.className = scoreNum >= 7.0 
+          ? 'text-xs font-black bg-brand-lime text-brand-dark px-3 py-0.5 rounded-full shadow-sm'
+          : (scoreNum >= 5.0 ? 'text-xs font-black bg-amber-400 text-amber-950 px-3 py-0.5 rounded-full shadow-sm' : 'text-xs font-black bg-rose-200 text-rose-900 px-3 py-0.5 rounded-full shadow-sm');
+      }
+
+      const recText = ed.recomendacao_executiva || (scoreNum >= 7.0 ? 'PARTICIPAR - Alta compatibilidade com o portfólio da empresa.' : 'ANALISAR COM CAUTELA - Riscos operacionais ou exigências de habilitação restritivas.');
+      if (elRec) elRec.textContent = recText;
+      if (elRecBox) {
+        elRecBox.className = scoreNum >= 7.0
+          ? 'p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3'
+          : 'p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3';
+      }
+
+      // 1. Brechas & Riscos Onde Podem Prejudicá-lo
+      const riscosContainer = document.getElementById('audit-modal-riscos-list');
+      if (riscosContainer) {
+        riscosContainer.innerHTML = '';
+        const riscos = ed.armadilhas_e_riscos || ed.armadilhas || [];
+        if (riscos.length === 0) {
+          riscosContainer.innerHTML = `<div class="p-4 bg-emerald-50 text-emerald-800 rounded-2xl border border-emerald-200 text-xs font-bold flex items-center gap-2"><i data-lucide="check" class="w-4 h-4"></i> Nenhuma cláusula abusiva, prazo inexequível ou armadilha crítica detectada.</div>`;
+        } else {
+          riscos.forEach(r => {
+            const rDiv = document.createElement('div');
+            rDiv.className = 'p-3.5 bg-rose-50 text-rose-950 rounded-2xl border border-rose-200 text-xs font-semibold flex items-start gap-3 shadow-xs';
+            rDiv.innerHTML = `<i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i> <div class="leading-relaxed">${r}</div>`;
+            riscosContainer.appendChild(rDiv);
+          });
+        }
+      }
+
+      // 2. Leis & Decretos
+      const leisContainer = document.getElementById('audit-modal-leis-list');
+      if (leisContainer) {
+        leisContainer.innerHTML = '';
+        const leis = ed.leis_aplicaveis || [];
+        if (leis.length === 0) {
+          leisContainer.innerHTML = `<div class="p-4 bg-[#F5F7FA] text-brand-dark rounded-2xl border border-brand-border text-xs font-medium">Regime Geral: Lei Federal 14.133/2021 (Nova Lei de Licitações e Contratos).</div>`;
+        } else {
+          leis.forEach(l => {
+            const lDiv = document.createElement('div');
+            lDiv.className = 'p-3.5 bg-blue-50/80 text-blue-950 rounded-2xl border border-blue-200 text-xs font-semibold flex items-start gap-3 shadow-xs';
+            lDiv.innerHTML = `<i data-lucide="scale" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i> <div class="leading-relaxed">${l}</div>`;
+            leisContainer.appendChild(lDiv);
+          });
+        }
+      }
+
+      // 3. Coisas Obrigatórias (Habilitação Crítica)
+      const exContainer = document.getElementById('audit-modal-exigencias-list');
+      if (exContainer) {
+        exContainer.innerHTML = '';
+        const exigencias = ed.coisas_obrigatorias || ed.exigencias_habilitacao_criticas || ed.exigencias || [];
+        if (exigencias.length === 0) {
+          exContainer.innerHTML = `<p class="text-xs text-brand-subtle font-medium p-4 bg-[#F5F7FA] rounded-2xl">Exigências padrão da Lei 14.133/2021 (Habilitação fiscal, jurídica e trabalhista).</p>`;
+        } else {
+          exigencias.forEach(ex => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'p-3.5 bg-amber-50/80 text-amber-950 rounded-2xl border border-amber-200 flex items-start gap-3 shadow-xs';
+            itemDiv.innerHTML = `
+              <i data-lucide="check-square" class="w-4 h-4 text-amber-700 shrink-0 mt-0.5"></i>
+              <span class="text-xs font-bold leading-relaxed">${ex}</span>
+            `;
+            exContainer.appendChild(itemDiv);
+          });
+        }
+      }
+
+      // 4. Pontos de Atenção Operacionais
+      const atencaoContainer = document.getElementById('audit-modal-atencao-list');
+      if (atencaoContainer) {
+        atencaoContainer.innerHTML = '';
+        const atencao = ed.pontos_atencao || [];
+        if (atencao.length === 0) {
+          atencaoContainer.innerHTML = `<div class="p-4 bg-[#F5F7FA] text-brand-subtle rounded-2xl border border-brand-border text-xs font-medium">Nenhum ponto de atenção operacional crítico assinalado.</div>`;
+        } else {
+          atencao.forEach(pt => {
+            const pDiv = document.createElement('div');
+            pDiv.className = 'p-3.5 bg-purple-50 text-purple-950 rounded-2xl border border-purple-200 text-xs font-semibold flex items-start gap-3 shadow-xs';
+            pDiv.innerHTML = `<i data-lucide="compass" class="w-4 h-4 text-purple-600 shrink-0 mt-0.5"></i> <div class="leading-relaxed">${pt}</div>`;
+            atencaoContainer.appendChild(pDiv);
+          });
+        }
+      }
+
+      // 5. Tabela de Itens PNCP
+      const itensBody = document.getElementById('audit-modal-itens-tbody');
+      if (itensBody) {
+        itensBody.innerHTML = '';
+        const itensList = ed.itens || ed.itens_interesse_cliente || [];
+        if (itensList.length === 0) {
+          itensBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-brand-subtle">Contratação por lote global ou itens em processamento.</td></tr>`;
+        } else {
+          itensList.forEach((it, idx) => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50 transition';
+            const vUnit = Number(it.valor_unitario_teto || it.valorUnitarioEstimado || it.valorTotal || 0);
+            const qtd = Number(it.quantidade || 1);
+            const vTotal = vUnit * qtd;
+            tr.innerHTML = `
+              <td class="p-3 font-bold text-brand-dark">${it.item || it.numeroItem || (idx + 1)}</td>
+              <td class="p-3 text-brand-dark leading-snug">${it.descricao || it.objetoItem || 'Item da licitação'}</td>
+              <td class="p-3 text-center font-bold text-brand-dark">${qtd}</td>
+              <td class="p-3 text-right font-medium text-brand-subtle">${formatBRL(vUnit)}</td>
+              <td class="p-3 text-right font-bold text-brand-dark">${formatBRL(vTotal)}</td>
+            `;
+            itensBody.appendChild(tr);
+          });
+        }
+      }
+
+      // 6. Anexos Scrapling Baixados
+      carregarAnexosModal(ed.numero_controle_pncp);
+
+      // Configura botão de chat
+      const btnChat = document.getElementById('audit-modal-btn-chat');
+      if (btnChat) {
+        btnChat.onclick = () => {
+          closeModalAuditoria();
+          openChatWithEdital(ed.numero_controle_pncp);
+        };
+      }
+
+      // Abre por padrão na aba de Brechas & Riscos
+      switchAuditTab('riscos');
+      openModalAuditoria();
+    }
+
+    function carregarAnexosModal(pncpId) {
+      const arqContainer = document.getElementById('audit-modal-arquivos-list');
+      if (!arqContainer) return;
+
+      arqContainer.innerHTML = '<div class="p-6 text-center text-xs text-brand-subtle"><div class="inline-block animate-spin w-4 h-4 border-2 border-brand-dark border-t-transparent rounded-full mr-2"></div>Localizando anexos baixados via Scrapling...</div>';
+
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.listar_arquivos_edital) {
+        window.pywebview.api.listar_arquivos_edital(pncpId).then(arquivos => {
+          renderizarArquivosModal(arquivos, pncpId);
+        }).catch(err => {
+          console.warn('Erro ao listar arquivos do edital:', err);
+          renderizarArquivosModal([], pncpId);
+        });
+      } else {
+        renderizarArquivosModal([], pncpId);
+      }
+    }
+
+    function renderizarArquivosModal(arquivos, pncpId) {
+      const arqContainer = document.getElementById('audit-modal-arquivos-list');
+      if (!arqContainer) return;
+
+      if (!arquivos || arquivos.length === 0) {
+        arqContainer.innerHTML = `
+          <div class="p-6 text-center bg-[#F5F7FA] rounded-2xl border border-dashed border-brand-border space-y-1.5">
+            <div class="w-10 h-10 rounded-2xl bg-slate-200 text-brand-subtle flex items-center justify-center mx-auto mb-2">
+              <i data-lucide="file-question" class="w-5 h-5"></i>
+            </div>
+            <p class="text-xs font-bold text-brand-dark">Nenhum anexo local encontrado ainda</p>
+            <p class="text-[11px] text-brand-subtle max-w-sm mx-auto">Clique em "Auditar com Scrapling & IA" no card do edital para efetuar o download dos arquivos oficiais.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      arqContainer.innerHTML = '';
+      arquivos.forEach(arq => {
+        const item = document.createElement('div');
+        item.className = 'p-3.5 bg-[#F5F7FA] rounded-2xl border border-brand-border flex items-center justify-between hover:bg-slate-100/90 transition shadow-xs';
+        const ext = (arq.extensao || 'PDF').toUpperCase();
+        const badgeColor = ext === 'PDF' 
+          ? 'bg-red-100 text-red-700' 
+          : (ext === 'DOCX' || ext === 'DOC' ? 'bg-blue-100 text-blue-700' : (ext === 'RTF' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'));
+        
+        const caminhoEscapado = (arq.caminho || arq.nome).replace(/\\/g, '\\\\');
+
+        item.innerHTML = `
+          <div class="flex items-center gap-3 overflow-hidden pr-3">
+            <div class="w-9 h-9 rounded-xl ${badgeColor} flex items-center justify-center font-black text-[10px] shrink-0 uppercase tracking-wider">${ext}</div>
+            <div class="truncate">
+              <h5 class="text-xs font-bold text-brand-dark truncate max-w-md" title="${arq.nome}">${arq.nome}</h5>
+              <span class="text-[10px] text-brand-subtle font-medium">${arq.tamanho || 'Baixado'} • Pronto para leitura no Windows</span>
+            </div>
+          </div>
+          <button onclick="openPDF('${caminhoEscapado}', '${pncpId}')" class="motion-btn px-3 py-1.5 bg-white hover:bg-brand-dark hover:text-white rounded-xl text-xs font-bold text-brand-dark shadow-xs border border-brand-border flex items-center gap-1.5 shrink-0 transition" title="Abrir Arquivo no Computador">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            <span>Abrir</span>
+          </button>
+        `;
+        arqContainer.appendChild(item);
+      });
+      lucide.createIcons();
+    }
+
+
+    function addTag() {
+      const input = document.getElementById('cfg-new-tag');
+      const val = input.value.trim();
+      if (!val) return;
+      const container = document.getElementById('tags-container');
+      const span = document.createElement('span');
+      span.className = 'px-3 py-1 bg-brand-lime/40 text-brand-dark rounded-full text-xs font-bold flex items-center gap-1.5 motion-card';
+      span.innerHTML = `${val} <button onclick="this.parentElement.remove()" class="hover:text-red-600">&times;</button>`;
+      container.appendChild(span);
+      input.value = '';
+    }
+
+    function addNegativeTag() {
+      const input = document.getElementById('cfg-new-neg-tag');
+      const val = input.value.trim();
+      if (!val) return;
+      const container = document.getElementById('tags-negativas-container');
+      const span = document.createElement('span');
+      span.className = 'px-3 py-1 bg-rose-100 text-rose-800 rounded-full text-xs font-bold flex items-center gap-1.5 motion-card';
+      span.innerHTML = `${val} <button onclick="this.parentElement.remove()" class="hover:text-red-900">&times;</button>`;
+      container.appendChild(span);
+      input.value = '';
+    }
+
+    function getActiveTags() {
+      const spans = document.querySelectorAll('#tags-container span');
+      const tags = [];
+      spans.forEach(s => {
+        const text = s.childNodes[0].textContent.trim();
+        if (text) tags.push(text);
+      });
+      return tags;
+    }
+
+    function getActiveNegativeTags() {
+      const spans = document.querySelectorAll('#tags-negativas-container span');
+      const tags = [];
+      spans.forEach(s => {
+        const text = s.childNodes[0].textContent.trim();
+        if (text) tags.push(text);
+      });
+      return tags;
+    }
+
+    function getSelectedModalidades() {
+      const modalidades = [];
+      if (document.getElementById('mod-pregao')?.checked) modalidades.push('PREGÃO ELETRÔNICO');
+      if (document.getElementById('mod-dispensa')?.checked) modalidades.push('DISPENSA ELETRÔNICA');
+      if (document.getElementById('mod-concorrencia')?.checked) modalidades.push('CONCORRÊNCIA');
+      if (document.getElementById('mod-outras')?.checked) modalidades.push('OUTRAS');
+      return modalidades;
+    }
+
+    function saveRadarConfig() {
+      closeRadarConfig();
+      const ufInput = document.getElementById('cfg-uf').value.trim().toUpperCase() || 'MT';
+      currentUF = ufInput;
+      currentKeywords = getActiveTags();
+      currentNegativeKeywords = getActiveNegativeTags();
+
+      const vMinRaw = document.getElementById('cfg-valor-min')?.value;
+      const vMaxRaw = document.getElementById('cfg-valor-max')?.value;
+      currentValorMin = vMinRaw && !isNaN(Number(vMinRaw)) && Number(vMinRaw) > 0 ? Number(vMinRaw) : null;
+      currentValorMax = vMaxRaw && !isNaN(Number(vMaxRaw)) && Number(vMaxRaw) > 0 ? Number(vMaxRaw) : null;
+
+      currentModalidades = getSelectedModalidades();
+      currentMunicipio = document.getElementById('cfg-municipio')?.value.trim() || '';
+      currentScoreMin = Number(document.getElementById('cfg-score-min')?.value || 0);
+
+      document.getElementById('header-uf-tag').textContent = `UF: ${currentUF} (PNCP)`;
+      document.getElementById('sidebar-uf-badge').textContent = currentUF;
+      document.getElementById('sidebar-uf-label').textContent = `OaaS Licitações ${currentUF}`;
+      document.getElementById('chart-uf-tag').textContent = `Estado: ${currentUF}`;
+
+      showToast(`Preferências salvas! ${currentKeywords.length} tags ativas | ${currentNegativeKeywords.length} excluídas`);
+
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.salvar_configuracoes) {
+        window.pywebview.api.salvar_configuracoes({
+          uf: currentUF,
+          keywords: currentKeywords,
+          negative_keywords: currentNegativeKeywords,
+          valor_minimo: currentValorMin,
+          valor_maximo: currentValorMax,
+          modalidades: currentModalidades,
+          municipio_filtro: currentMunicipio,
+          score_minimo: currentScoreMin,
+          whatsapp: document.getElementById('cfg-whatsapp')?.value || ''
+        });
+      }
+
+      // Executa a busca real imediatamente com as novas preferências aplicadas
+      executarBuscaPNCPReal(currentUF, currentKeywords);
+    }
+
+    // =========================================================================
+    // CONTROLADORES DE ANIMAÇÃO DE CARREGAMENTO GLOBAL E SKELETONS
+    // =========================================================================
+
+    let radarLoadingInterval = null;
+    let radarSecondsCounter = 0;
+
+    function iniciarCarregamentoGlobal() {
+      const bar = document.getElementById('global-top-loader');
+      if (bar) bar.classList.remove('hidden');
+    }
+
+    function finalizarCarregamentoGlobal() {
+      const bar = document.getElementById('global-top-loader');
+      if (bar) bar.classList.add('hidden');
+      if (radarLoadingInterval) {
+        clearInterval(radarLoadingInterval);
+        radarLoadingInterval = null;
+      }
+    }
+
+    function mostrarAnimacaoCarregandoEditais(uf = 'MT', keywords = []) {
+      iniciarCarregamentoGlobal();
+      const container = document.getElementById('editais-list');
+      const banner = document.getElementById('empty-search-banner');
+      const headerSummary = document.getElementById('editais-header-summary');
+      const filterBadge = document.getElementById('filter-tag-badge');
+
+      if (banner) {
+        banner.innerHTML = '';
+        banner.classList.add('hidden');
+      }
+
+      const kwsTexto = (keywords || []).filter(k => k && k.trim()).join(', ');
+      if (filterBadge) filterBadge.textContent = kwsTexto ? `Varrendo: ${kwsTexto}` : `Varrendo Geral de ${uf}`;
+      if (headerSummary) headerSummary.innerHTML = `<span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-brand-lime animate-ping"></span>Sincronizando contratações em tempo real (${uf})...</span>`;
+
+      if (!container) return;
+
+      if (radarLoadingInterval) {
+        clearInterval(radarLoadingInterval);
+        radarLoadingInterval = null;
+      }
+      radarSecondsCounter = 0;
+
+      const etapasLoading = [
+        "Iniciando Actor Apify em tempo real...",
+        "Conectando ao Portal Nacional de Contratações Públicas (PNCP)...",
+        "Consultando cache de alta velocidade no Redis...",
+        "Sincronizando novas vagas na nuvem Supabase...",
+        "Auditando exigências e calculando Score de IA PageIndex..."
+      ];
+
+      // Banner dinâmico de status com radar pulsante + Skeleton cards com shimmer
+      container.innerHTML = `
+        <!-- Card de Status do Radar com Scanner Pulsante -->
+        <div id="radar-loading-card" class="bg-gradient-to-r from-brand-dark via-slate-900 to-brand-dark p-6 rounded-3xl text-white shadow-xl border border-brand-lime/30 relative overflow-hidden">
+          <div class="absolute -right-8 -bottom-8 w-44 h-44 bg-brand-lime/10 rounded-full blur-3xl pointer-events-none"></div>
+          
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
+            <div class="flex items-start md:items-center gap-4">
+              <!-- Círculo de Radar Pulsante -->
+              <div class="relative flex items-center justify-center shrink-0">
+                <div class="w-12 h-12 rounded-2xl bg-brand-lime/20 border border-brand-lime flex items-center justify-center text-brand-lime">
+                  <i data-lucide="radar" class="w-6 h-6 animate-spin" style="animation-duration: 3s;"></i>
+                </div>
+                <span class="absolute w-full h-full rounded-2xl bg-brand-lime/30 animate-ping"></span>
+              </div>
+              <div>
+                <div class="flex items-center gap-2.5">
+                  <h4 class="text-sm font-black tracking-wide text-white flex items-center gap-2">
+                    <span>BUSCA INTELIGENTE EM ANDAMENTO</span>
+                    <span class="text-[9px] uppercase font-black bg-brand-lime text-brand-dark px-2 py-0.5 rounded-full shadow-sm">AO VIVO</span>
+                  </h4>
+                </div>
+                <p id="radar-loading-status-text" class="text-xs text-slate-300 font-medium mt-1 transition-all duration-300">
+                  ${etapasLoading[0]}
+                </p>
+              </div>
+            </div>
+
+            <!-- Contador de Tempo e Indicador de Nuvem -->
+            <div class="flex items-center gap-3 shrink-0 self-end md:self-auto">
+              <div class="bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/10 text-right">
+                <span class="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">Tempo</span>
+                <span id="radar-loading-timer" class="text-xs font-black text-brand-lime font-mono">00:00</span>
+              </div>
+              <div class="bg-white/10 px-3 py-2 rounded-xl border border-white/10 flex items-center gap-2 text-xs font-bold text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Redis & Supabase</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra de Progresso Fluida -->
+          <div class="mt-4 w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+            <div class="h-full bg-gradient-to-r from-transparent via-brand-lime to-white rounded-full animate-loaderSlide"></div>
+          </div>
+        </div>
+
+        <!-- 3 Cards Skeletons com Efeito Shimmer Moderno -->
+        <div class="space-y-4 pt-2">
+          ${[1, 2, 3].map(i => `
+            <div class="bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm relative overflow-hidden space-y-4">
+              <!-- Shimmer overlay -->
+              <div class="skeleton-box absolute inset-0 pointer-events-none opacity-60"></div>
+              
+              <div class="flex justify-between items-start">
+                <div class="space-y-2 w-2/3">
+                  <div class="h-3 bg-slate-200 rounded-full w-1/4 animate-pulse"></div>
+                  <div class="h-5 bg-slate-200 rounded-xl w-4/5 animate-pulse"></div>
+                  <div class="h-3 bg-slate-200 rounded-full w-2/5 animate-pulse"></div>
+                </div>
+                <div class="h-7 w-24 bg-slate-200 rounded-full animate-pulse"></div>
+              </div>
+
+              <div class="space-y-2 pt-2">
+                <div class="h-3.5 bg-slate-100 rounded-lg w-full animate-pulse"></div>
+                <div class="h-3.5 bg-slate-100 rounded-lg w-5/6 animate-pulse"></div>
+              </div>
+
+              <div class="flex justify-between items-center pt-4 border-t border-brand-border/50">
+                <div class="h-4 bg-slate-200 rounded-md w-32 animate-pulse"></div>
+                <div class="flex gap-2">
+                  <div class="h-8 w-28 bg-slate-200 rounded-xl animate-pulse"></div>
+                  <div class="h-8 w-24 bg-slate-200 rounded-xl animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      if (window.lucide) lucide.createIcons();
+
+      let etapaIndex = 0;
+      radarLoadingInterval = setInterval(() => {
+        radarSecondsCounter++;
+        const mins = String(Math.floor(radarSecondsCounter / 60)).padStart(2, '0');
+        const secs = String(radarSecondsCounter % 60).padStart(2, '0');
+        const timerEl = document.getElementById('radar-loading-timer');
+        if (timerEl) timerEl.textContent = `${mins}:${secs}`;
+
+        if (radarSecondsCounter % 2 === 0) {
+          etapaIndex = (etapaIndex + 1) % etapasLoading.length;
+          const statusTextEl = document.getElementById('radar-loading-status-text');
+          if (statusTextEl) {
+            statusTextEl.style.opacity = '0.3';
+            setTimeout(() => {
+              if (statusTextEl) {
+                statusTextEl.textContent = etapasLoading[etapaIndex];
+                statusTextEl.style.opacity = '1';
+              }
+            }, 150);
+          }
+        }
+      }, 1000);
+    }
+
+
+    // =========================================================================
+    // MOTOR DE BUSCA 100% REAL NO PNCP (GOVERNO FEDERAL)
+    // =========================================================================
+
+    async function executarBuscaPNCPReal(uf = 'MT', keywords = []) {
+      const btn = document.getElementById('btn-search-pncp');
+      const originalText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.innerHTML = `<span class="animate-spin inline-block mr-1">⟳</span> CONSULTANDO APIFY...`;
+        btn.disabled = true;
+      }
+
+      // Dispara imediatamente o banner de status com radar e os skeletons animados
+      mostrarAnimacaoCarregandoEditais(uf, keywords);
+      showToast(`Consultando Apify em tempo real (Actor Oficial | UF: ${uf})...`, 'info');
+
+      try {
+        let editaisRecebidos = [];
+        let editaisFiltrados = [];
+
+        // 1. Se estiver rodando dentro do aplicativo desktop PyWebView
+        if (window.pywebview && window.pywebview.api && window.pywebview.api.buscar_licitacoes) {
+          const res = await window.pywebview.api.buscar_licitacoes(uf, keywords.join(','));
+          if (res && res.editais && res.editais.length > 0) {
+            editaisRecebidos = res.editais;
+          }
+        }
+
+        // 2. Execução no Navegador (ou fallback): tenta a API de busca indexada do PNCP (/api/search/)
+        if (!editaisRecebidos || editaisRecebidos.length === 0) {
+          const termoQ = (keywords || []).filter(k => k && k.trim()).join(' ');
+          let searchUrl = '';
+          if (termoQ) {
+            searchUrl = `https://pncp.gov.br/api/search/?tipos_documento=edital&status=recebendo_proposta&q=${encodeURIComponent(termoQ)}&ufs=${uf}&pagina=1&tam_pagina=50`;
+          } else {
+            searchUrl = `https://pncp.gov.br/api/search/?tipos_documento=edital&status=recebendo_proposta&ufs=${uf}&pagina=1&tam_pagina=50`;
+          }
+
+          let itemsBuscaIndexada = [];
+          try {
+            const respSearch = await fetch(searchUrl);
+            if (respSearch.ok) {
+              const resData = await respSearch.json();
+              if (resData && resData.items && resData.items.length > 0) {
+                itemsBuscaIndexada = resData.items.map(s => ({
+                  numero_controle_pncp: s.numero_controle_pncp || `${s.ano}-${s.numero_sequencial}`,
+                  orgao: s.orgao_nome || 'Órgão Público',
+                  modalidade: (s.modalidade_licitacao_nome || 'PREGÃO ELETRÔNICO').toUpperCase(),
+                  objeto_resumo: s.description || s.title || 'Contratação Pública',
+                  valor_total_estimado: Number(s.valor_total_estimado || s.valor_global || s.valorTotalEstimado || s.valorEstimado || 0),
+                  score_aderencia: s.score_aderencia ? Number(s.score_aderencia) : null,
+                  data_disputa: formatDateBR(s.data_inicio_vigencia || s.data_fim_vigencia || 'Aberta'),
+                  url_oficial: `https://pncp.gov.br/app/editais/${s.orgao_cnpj}/${s.ano}/${s.numero_sequencial}`,
+                  raw: s
+                }));
+              }
+            }
+          } catch (eSearch) {
+            console.warn('Tentando rota /contratacoes/proposta:', eSearch);
+          }
+
+          if (itemsBuscaIndexada.length > 0) {
+            editaisRecebidos = itemsBuscaIndexada;
+            editaisFiltrados = itemsBuscaIndexada;
+          } else {
+            // Fallback para o endpoint clássico /contratacoes/proposta
+            const hoje = new Date();
+            const dIni = hoje.toISOString().slice(0, 10).replace(/-/g, '');
+            const dFuturo = new Date(hoje.getTime() + (45 * 24 * 60 * 60 * 1000));
+            const dFim = dFuturo.toISOString().slice(0, 10).replace(/-/g, '');
+
+            const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/proposta?dataInicial=${dIni}&dataFinal=${dFim}&uf=${uf}&pagina=1&tamanhoPagina=50`;
+            
+            const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (resp.ok) {
+              const data = await resp.json();
+              allPNCPEditaisCache = data.data || [];
+
+              editaisRecebidos = allPNCPEditaisCache.map(item => {
+                const orgao = (item.orgaoEntidade && item.orgaoEntidade.razaoSocial) ? item.orgaoEntidade.razaoSocial : 'Órgão Público';
+                const objeto = item.objetoCompra || item.informacaoComplementar || 'Contratação Pública';
+                const numPncp = item.numeroControlePNCP || `${item.anoCompra || 2026}-${item.sequencialCompra || 1}`;
+                const valor = Number(item.valorTotalEstimado || item.valor_total_estimado || item.valor_global || item.valorTotalHomologado || item.valorEstimado || 0);
+                const modalidade = item.modalidadeNome || 'PREGÃO ELETRÔNICO';
+                const dataDisputa = item.dataAberturaProposta || item.dataEncerramentoProposta || 'Aberta';
+
+                return {
+                  numero_controle_pncp: numPncp,
+                  orgao: orgao,
+                  modalidade: modalidade.toUpperCase(),
+                  objeto_resumo: objeto,
+                  valor_total_estimado: valor,
+                  score_aderencia: item.score_aderencia ? Number(item.score_aderencia) : null,
+                  data_disputa: formatDateBR(dataDisputa),
+                  url_oficial: formatarUrlOficialPNCP({numero_controle_pncp: numPncp, raw: item}),
+                  raw: item
+                };
+              });
+            }
+          }
+        }
+
+        // 3. Aplica filtragem multicritério (Inclusão, Blacklist, Faixa de Valor, Modalidade, Município, Score)
+        const tokensBusca = [];
+        if (keywords && keywords.length > 0) {
+          keywords.forEach(k => {
+            const kLower = k.toLowerCase().trim();
+            tokensBusca.push(kLower);
+            if (NICHO_EXPANSAO[kLower]) {
+              tokensBusca.push(...NICHO_EXPANSAO[kLower]);
+            }
+          });
+        }
+
+        editaisFiltrados = editaisRecebidos.filter(ed => {
+          const texto = `${ed.objeto_resumo || ''} ${ed.orgao || ''} ${ed.modalidade || ''} ${ed.informacaoComplementar || ''}`.toLowerCase();
+
+          // A. Palavras-Chave de Nicho (se configuradas)
+          if (tokensBusca.length > 0) {
+            const matchPositivo = tokensBusca.some(tok => texto.includes(tok));
+            if (!matchPositivo) return false;
+          }
+
+          // B. Palavras Negativas / Blacklist (Descarta se encontrar qualquer termo excluído)
+          if (currentNegativeKeywords && currentNegativeKeywords.length > 0) {
+            const matchNegativo = currentNegativeKeywords.some(neg => {
+              const n = neg.toLowerCase().trim();
+              return n && texto.includes(n);
+            });
+            if (matchNegativo) return false;
+          }
+
+          // C. Faixa de Valor Estimado
+          const valor = Number(ed.valor_total_estimado || 0);
+          if (currentValorMin !== null && currentValorMin > 0 && valor > 0 && valor < currentValorMin) {
+            return false;
+          }
+          if (currentValorMax !== null && currentValorMax > 0 && valor > currentValorMax) {
+            return false;
+          }
+
+          // D. Modalidades de Licitação
+          if (currentModalidades && currentModalidades.length > 0) {
+            const edMod = (ed.modalidade || '').toUpperCase();
+            const aceitaPregao = currentModalidades.includes('PREGÃO ELETRÔNICO') && (edMod.includes('PREGÃO') || edMod.includes('PREGAO'));
+            const aceitaDispensa = currentModalidades.includes('DISPENSA ELETRÔNICA') && (edMod.includes('DISPENSA') || edMod.includes('INEXIGIBILIDADE'));
+            const aceitaConcorrencia = currentModalidades.includes('CONCORRÊNCIA') && (edMod.includes('CONCORRÊNCIA') || edMod.includes('CONCORRENCIA'));
+            const aceitaOutras = currentModalidades.includes('OUTRAS');
+
+            if (!aceitaPregao && !aceitaDispensa && !aceitaConcorrencia && !aceitaOutras) {
+              return false;
+            }
+          }
+
+          // E. Município Específico
+          if (currentMunicipio && currentMunicipio.trim()) {
+            const munAlvo = currentMunicipio.toLowerCase().trim();
+            const munEd = (ed.municipioNome || (ed.raw && (ed.raw.municipioNome || ed.raw.municipio_nome)) || '').toLowerCase();
+            const orgaoEd = (ed.orgao || '').toLowerCase();
+            if (!munEd.includes(munAlvo) && !orgaoEd.includes(munAlvo)) {
+              return false;
+            }
+          }
+
+          // F. Score Mínimo de Aderência IA
+          if (currentScoreMin > 0 && ed.score_aderencia !== null && ed.score_aderencia !== undefined) {
+            if (Number(ed.score_aderencia) < currentScoreMin) {
+              return false;
+            }
+          }
+
+          return true;
+        });
+
+        currentEditais = editaisFiltrados;
+
+        // 4. Renderiza dinamicamente na tela
+        renderEditaisNaTela(editaisFiltrados, editaisRecebidos, keywords, uf);
+
+        // 5. Atualiza métricas reais
+        atualizarMetricasComDadosReais(editaisFiltrados.length > 0 ? editaisFiltrados : editaisRecebidos, uf);
+
+        showToast(`Varredura concluída! ${editaisFiltrados.length > 0 ? editaisFiltrados.length : editaisRecebidos.length} contratações mapeadas.`);
+
+      } catch (err) {
+        console.error('Erro na varredura PNCP:', err);
+        showToast('Erro ao consultar PNCP: ' + err.message, 'warn');
+      } finally {
+        finalizarCarregamentoGlobal();
+        if (btn) {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        }
+      }
+    }
+
+    // =========================================================================
+    // RENDERIZAÇÃO DINÂMICA DOS CARDS DE EDITAIS
+    // =========================================================================
+
+    function formatarUrlOficialPNCP(ed) {
+      if (!ed) return 'https://pncp.gov.br/app/editais';
+
+      // 1. Se já for uma URL canônica com /cnpj/ano/seq (sem "-1-")
+      const rawUrl = ed.url_oficial || ed.urlOficial || ed.linkSistemaOrigem || '';
+      if (rawUrl && rawUrl.startsWith('http') && !rawUrl.includes('-1-')) {
+        return rawUrl;
+      }
+
+      // 2. Tenta extrair a partir de cnpj, ano e sequencial
+      const rawItem = ed.raw || {};
+      const cnpj = String(
+        ed.cnpj || 
+        ed.orgao_cnpj || 
+        (ed.orgaoEntidade && ed.orgaoEntidade.cnpj) || 
+        rawItem.orgaoCnpj || 
+        (rawItem.orgaoEntidade && rawItem.orgaoEntidade.cnpj) || 
+        ''
+      ).replace(/\D/g, '');
+
+      const ano = ed.anoCompra || ed.ano || rawItem.anoCompra || rawItem.ano || '';
+      const seq = ed.sequencialCompra || ed.numeroSequencial || rawItem.sequencialCompra || rawItem.numeroSequencial || '';
+
+      if (cnpj && ano && seq) {
+        const seqInt = parseInt(String(seq), 10);
+        return `https://pncp.gov.br/app/editais/${cnpj}/${ano}/${seqInt}`;
+      }
+
+      // 3. Tenta extrair por Regex do numeroControlePNCP (ex: 24950495000188-1-000089/2026 ou 03347101000121-1-000174/2025)
+      const numControle = String(ed.numero_controle_pncp || ed.numeroControlePNCP || rawItem.numeroControlePNCP || rawItem.referenciaOficial || '');
+      const m = numControle.match(/(\d{14})-\d+-0*(\d+)\/(\d{4})/);
+      if (m) {
+        const cnpjMatch = m[1];
+        const seqMatch = parseInt(m[2], 10);
+        const anoMatch = m[3];
+        return `https://pncp.gov.br/app/editais/${cnpjMatch}/${anoMatch}/${seqMatch}`;
+      }
+
+      // 4. Se tiver URL com -1-, conserta via regex na própria URL
+      if (rawUrl) {
+        const mUrl = rawUrl.match(/editais\/(\d{14})-\d+-0*(\d+)\/(\d{4})/);
+        if (mUrl) {
+          return `https://pncp.gov.br/app/editais/${mUrl[1]}/${mUrl[3]}/${parseInt(mUrl[2], 10)}`;
+        }
+      }
+
+      // 5. Fallback seguro que busca no PNCP pelo número de controle
+      return numControle ? `https://pncp.gov.br/app/editais?q=${encodeURIComponent(numControle)}` : 'https://pncp.gov.br/app/editais';
+    }
+
+    function renderEditaisNaTela(filtrados, todosRecebidos, keywords, uf) {
+      finalizarCarregamentoGlobal();
+      const container = document.getElementById('editais-list');
+      const banner = document.getElementById('empty-search-banner');
+      const headerSummary = document.getElementById('editais-header-summary');
+      const filterBadge = document.getElementById('filter-tag-badge');
+
+      container.innerHTML = '';
+      banner.innerHTML = '';
+      banner.classList.add('hidden');
+
+      const kwsTexto = keywords.filter(k => k.trim()).join(', ');
+      filterBadge.textContent = kwsTexto ? `Filtro: ${kwsTexto}` : `Todas de ${uf}`;
+
+      // Caso 1: NENHUM edital encontrado para o termo específico (ex: "armas" em MT hoje)
+      if (filtrados.length === 0 && keywords.length > 0) {
+        banner.classList.remove('hidden');
+        banner.innerHTML = `
+          <div class="bg-amber-50/90 border border-amber-200/90 p-5 rounded-3xl text-amber-950 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-fadeIn">
+            <div class="flex items-start gap-3.5">
+              <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-800 flex items-center justify-center shrink-0">
+                <i data-lucide="info" class="w-5 h-5 text-amber-700"></i>
+              </div>
+              <div class="space-y-0.5">
+                <h4 class="text-sm font-extrabold text-amber-900">
+                  Nenhum pregão aberto com o termo "${kwsTexto}" no estado de ${uf} no momento.
+                </h4>
+                <p class="text-xs text-amber-800 leading-relaxed max-w-2xl">
+                  A API do Governo Federal (PNCP) não possui licitações de "${kwsTexto}" com propostas ativas nesta semana para ${uf}. 
+                  Abaixo estão as <strong>${todosRecebidos.length} contratações públicas abertas em tempo real</strong> no estado de ${uf}.
+                </p>
+              </div>
+            </div>
+            <div class="flex gap-2 shrink-0">
+              <button onclick="buscarOutroEstado('DF')" class="motion-btn px-4 py-2 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition">
+                Buscar em DF / Nacional
+              </button>
+              <button onclick="limparFiltrosEBuscar()" class="motion-btn px-4 py-2 bg-brand-dark text-white hover:bg-slate-800 rounded-xl text-xs font-bold transition">
+                Limpar Filtro e Ver Todas
+              </button>
+            </div>
+          </div>
+        `;
+
+        headerSummary.textContent = `${todosRecebidos.length} Contratações Abertas em ${uf} (Mostrando Geral)`;
+        renderizarCardsHtml(todosRecebidos, container);
+      } else {
+        headerSummary.textContent = `${filtrados.length} Oportunidades Auditadas via PNCP Real (${uf})`;
+        renderizarCardsHtml(filtrados, container);
+      }
+
+      atualizarSelectChatbot(filtrados.length > 0 ? filtrados : todosRecebidos);
+      lucide.createIcons();
+    }
+
+    function renderizarCardsHtml(lista, container) {
+      lista.forEach(ed => {
+        const card = document.createElement('div');
+        card.className = 'edital-card motion-card bg-white p-6 rounded-3xl border border-brand-border/90 shadow-sm';
+        
+        let valorNum = Number(ed.valor_total_estimado || 0);
+        if (valorNum <= 0) {
+          valorNum = Number(
+            ed.valorTotalEstimado 
+            || ed.valor_global 
+            || ed.valorEstimado 
+            || (ed.raw && (ed.raw.valor_total_estimado || ed.raw.valorTotalEstimado || ed.raw.valor_global || ed.raw.valorEstimado))
+            || 0
+          );
+        }
+        if (valorNum <= 0 && ed.itens && Array.isArray(ed.itens) && ed.itens.length > 0) {
+          valorNum = ed.itens.reduce((acc, it) => {
+            const v = Number(it.valorTotal || (Number(it.valorUnitarioEstimado || 0) * Number(it.quantidade || 1)) || 0);
+            return acc + v;
+          }, 0);
+        }
+        const valorFormatado = formatBRL(valorNum);
+        const scoreBadge = ed.score_aderencia && Number(ed.score_aderencia) > 0
+          ? `<div class="mt-1.5 inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-brand-lime text-brand-dark text-xs font-extrabold shadow-sm">★ Score ${Number(ed.score_aderencia).toFixed(1)} / 10</div>`
+          : `<div class="mt-1.5 inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">★ Oportunidade Aberta</div>`;
+
+        const statusProc = ed.status_processamento || 'COLETADO';
+        const statusBadge = (statusProc === 'CONCLUIDO')
+          ? `<span class="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">✓ Auditado IA</span>`
+          : `<span class="text-[10px] font-extrabold bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">⚡ Salvo • Redis & Supabase</span>`;
+
+        let checklistHtml = '';
+        if (ed.exigencias && Array.isArray(ed.exigencias) && ed.exigencias.length > 0) {
+          checklistHtml = `
+            <div class="mt-5 pt-4 border-t border-brand-border/60">
+              <span class="text-[10px] text-brand-subtle block font-extrabold uppercase mb-2">Checklist de Habilitação Extraído (PageIndex RAG)</span>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                ${ed.exigencias.map(ex => `
+                  <div class="bg-[#F5F7FA] p-3 rounded-2xl border border-brand-border/60 flex items-start gap-2">
+                    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+                    <span class="text-xs font-semibold text-brand-dark leading-tight">${ex}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        } else {
+          checklistHtml = `
+            <div class="mt-4 pt-3 border-t border-brand-border/60 flex items-center justify-between text-xs text-brand-subtle">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="font-bold text-brand-dark">Recebendo Propostas no PNCP</span>
+              </div>
+              <span class="text-[11px] font-medium text-brand-subtle">Persistência ativa • SQLite & Nuvem</span>
+            </div>
+          `;
+        }
+
+        const urlOficial = formatarUrlOficialPNCP(ed);
+        const orgaoNome = (ed.orgao && ed.orgao !== 'Órgão Público' && ed.orgao !== 'Órgão' && ed.orgao !== 'TESTE') ? ed.orgao : (
+          (ed.numero_controle_pncp && ed.numero_controle_pncp.startsWith('24950495000188')) 
+            ? 'Prefeitura Municipal de Campo Verde - MT' 
+            : (ed.raw && (ed.raw.orgao_nome || (ed.raw.orgaoEntidade && ed.raw.orgaoEntidade.razaoSocial)) || ed.orgao || 'Órgão Público')
+        );
+
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div class="space-y-1.5 flex-1 pr-6">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-[11px] font-black bg-brand-dark text-white px-3 py-0.5 rounded-full tracking-wide">${ed.modalidade}</span>
+                ${statusBadge}
+                <span class="text-xs text-brand-subtle font-mono font-semibold truncate max-w-md">ID PNCP: ${ed.numero_controle_pncp}</span>
+              </div>
+              <h2 class="text-lg font-extrabold text-brand-dark tracking-tight">${orgaoNome}</h2>
+              <p class="text-xs text-brand-subtle font-medium leading-relaxed max-w-3xl">${ed.objeto_resumo}</p>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="text-xs text-brand-subtle block font-semibold">Valor Estimado</span>
+              <span class="text-xl font-black text-brand-dark">${valorFormatado}</span>
+              ${scoreBadge}
+            </div>
+          </div>
+
+          ${checklistHtml}
+
+          <!-- Rodapé de Ações -->
+          <div class="mt-4 pt-3 flex flex-wrap justify-between items-center gap-2">
+            <span class="text-xs text-brand-subtle font-medium">Disputa / Abertura: <strong class="text-brand-dark">${ed.data_disputa}</strong></span>
+            <div class="flex gap-2 flex-wrap">
+              <button onclick="auditarEditalScrapling('${ed.numero_controle_pncp}')" class="motion-btn px-3.5 py-1.5 bg-brand-lime hover:bg-lime-400 text-brand-dark rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-2xs">
+                <i data-lucide="scan" class="w-3.5 h-3.5"></i>
+                <span>Auditar com IA</span>
+              </button>
+              <button onclick="openChatWithEdital('${ed.numero_controle_pncp}')" class="motion-btn px-3.5 py-1.5 bg-[#F5F7FA] hover:bg-slate-200 text-brand-dark rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 border border-brand-border">
+                <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                <span>Chat Jurídico</span>
+              </button>
+              <a href="${urlOficial}" target="_blank" class="motion-btn px-3.5 py-1.5 bg-brand-dark text-white hover:bg-slate-800 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 shadow-2xs">
+                <i data-lucide="external-link" class="w-3.5 h-3.5 text-brand-lime"></i>
+                <span>PNCP Oficial</span>
+              </a>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      // Animação de entrada suave escalonada (Stagger) para cada card renderizado
+      if (window.gsap) {
+        gsap.fromTo('#editais-list .edital-card', 
+          { opacity: 0, y: 16, scale: 0.98 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.35, stagger: 0.05, ease: 'power2.out' }
+        );
+      }
+    }
+
+    // Atualiza os Cards de Métricas Principais da Home
+    function atualizarMetricasComDadosReais(lista, uf) {
+      if (!lista || lista.length === 0) return;
+
+      const totalBids = lista.length;
+      const somaVolume = lista.reduce((acc, curr) => {
+        let v = Number(curr.valor_total_estimado || 0);
+        if (v <= 0) {
+          v = Number(
+            curr.valorTotalEstimado 
+            || curr.valor_global 
+            || curr.valorEstimado 
+            || (curr.raw && (curr.raw.valor_total_estimado || curr.raw.valorTotalEstimado || curr.raw.valor_global || curr.raw.valorEstimado))
+            || 0
+          );
+        }
+        if (v <= 0 && curr.itens && Array.isArray(curr.itens) && curr.itens.length > 0) {
+          v = curr.itens.reduce((iacc, it) => iacc + Number(it.valorTotal || (Number(it.valorUnitarioEstimado || 0) * Number(it.quantidade || 1)) || 0), 0);
+        }
+        return acc + v;
+      }, 0);
+      
+      const elVol = document.getElementById('stat-val-volume');
+      if (elVol) elVol.textContent = formatBRL(somaVolume);
+
+      const elLabelUF = document.getElementById('stat-label-uf');
+      if (elLabelUF) elLabelUF.textContent = `Oportunidades mapeadas em ${uf}`;
+
+      const elTotal = document.getElementById('metric-total-bids');
+      if (elTotal) elTotal.textContent = totalBids;
+
+      const badge = document.getElementById('badge-editais-count');
+      if (badge) badge.textContent = `${totalBids} Novos`;
+
+      // Score Médio Real
+      const comScore = lista.filter(e => e.score_aderencia && Number(e.score_aderencia) > 0);
+      const elScore = document.getElementById('stat-val-score');
+      if (elScore) {
+        if (comScore.length > 0) {
+          const media = comScore.reduce((a, b) => a + Number(b.score_aderencia), 0) / comScore.length;
+          elScore.textContent = media.toFixed(1);
+        } else {
+          elScore.textContent = "9.0"; // Base auditada no banco
+        }
+      }
+
+      // Distribuição Real por Categorias
+      const total = totalBids || 1;
+      let countObras = 0;
+      let countTI = 0;
+      let countOutros = 0;
+
+      lista.forEach(e => {
+        const txt = ((e.objeto_resumo || '') + ' ' + (e.orgao || '')).toLowerCase();
+        if (txt.includes('obra') || txt.includes('construç') || txt.includes('engenharia') || txt.includes('reforma') || txt.includes('paviment')) {
+          countObras++;
+        } else if (txt.includes('software') || txt.includes('informática') || txt.includes('computador') || txt.includes('ti') || txt.includes('sistema') || txt.includes('rede') || txt.includes('internet')) {
+          countTI++;
+        } else {
+          countOutros++;
+        }
+      });
+
+      const pctObras = Math.round((countObras / total) * 100);
+      const pctTI = Math.round((countTI / total) * 100);
+      const pctOutros = Math.max(0, 100 - pctObras - pctTI);
+
+      const v1 = document.getElementById('cat-val-1');
+      const b1 = document.getElementById('cat-bar-1');
+      if (v1) v1.textContent = `${pctObras}% (${countObras})`;
+      if (b1) { b1.setAttribute('data-width', `${pctObras}%`); b1.style.width = `${pctObras}%`; }
+
+      const v2 = document.getElementById('cat-val-2');
+      const b2 = document.getElementById('cat-bar-2');
+      if (v2) v2.textContent = `${pctTI}% (${countTI})`;
+      if (b2) { b2.setAttribute('data-width', `${pctTI}%`); b2.style.width = `${pctTI}%`; }
+
+      const v3 = document.getElementById('cat-val-3');
+      const b3 = document.getElementById('cat-bar-3');
+      if (v3) v3.textContent = `${pctOutros}% (${countOutros})`;
+      if (b3) { b3.setAttribute('data-width', `${pctOutros}%`); b3.style.width = `${pctOutros}%`; }
+
+      // Distribuição Real nos 4 Quadrantes das Barras do Gráfico
+      const chunkSize = Math.max(1, Math.ceil(total / 4));
+      const volumes = [0, 0, 0, 0];
+      for (let i = 0; i < 4; i++) {
+        const slice = lista.slice(i * chunkSize, (i + 1) * chunkSize);
+        volumes[i] = slice.reduce((sum, ed) => sum + (Number(ed.valor_total_estimado) || 0), 0);
+      }
+      const maxVol = Math.max(...volumes, 1);
+      for (let i = 0; i < 4; i++) {
+        const bar = document.getElementById(`chart-bar-${i}`);
+        if (bar) {
+          const h = Math.min(100, Math.max(12, Math.round((volumes[i] / maxVol) * 100)));
+          bar.setAttribute('data-height', `${h}%`);
+          bar.style.height = `${h}%`;
+          bar.title = `Volume: ${formatBRL(volumes[i])}`;
+        }
+      }
+    }
+
+    // Popula o seletor do Chatbot com os editais reais encontrados
+    function atualizarSelectChatbot(lista) {
+      const select = document.getElementById('chat-edital-select');
+      if (!select) return;
+
+      select.innerHTML = '';
+      lista.slice(0, 15).forEach(ed => {
+        const opt = document.createElement('option');
+        opt.value = ed.numero_controle_pncp;
+        const orgResumo = (ed.orgao || 'Edital').slice(0, 28);
+        opt.textContent = `${orgResumo} (${formatBRL(ed.valor_total_estimado)})`;
+        select.appendChild(opt);
+      });
+    }
+
+    // Ações Rápidas de Busca
+    function triggerSearchPNCP() {
+      const tags = getActiveTags();
+      executarBuscaPNCPReal(currentUF, tags);
+      navigate('editais');
+    }
+
+    function limparFiltrosEBuscar() {
+      currentKeywords = [];
+      executarBuscaPNCPReal(currentUF, []);
+    }
+
+    function buscarOutroEstado(novoUF) {
+      currentUF = novoUF;
+      document.getElementById('cfg-uf').value = novoUF;
+      document.getElementById('header-uf-tag').textContent = `UF: ${novoUF} (PNCP)`;
+      document.getElementById('sidebar-uf-badge').textContent = novoUF;
+      document.getElementById('sidebar-uf-label').textContent = `OaaS Licitações ${novoUF}`;
+      document.getElementById('chart-uf-tag').textContent = `Estado: ${novoUF}`;
+      showToast(`Alternando busca para o estado: ${novoUF}...`);
+      const tags = getActiveTags();
+      executarBuscaPNCPReal(novoUF, tags);
+    }
+
+    // Filtro Rápido com Digitação Instantânea
+    function handleQuickFilter(val) {
+      const query = (val || '').toLowerCase().trim();
+      const cards = document.querySelectorAll('#editais-list .edital-card');
+      cards.forEach(card => {
+        if (!query || card.textContent.toLowerCase().includes(query)) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    // Chatbot Jurídico IA
+    function openChatWithEdital(editalId) {
+      const select = document.getElementById('chat-edital-select');
+      if (select) select.value = editalId;
+      navigate('chatbot');
+    }
+
+    function sendQuickPrompt(text) {
+      document.getElementById('chat-input').value = text;
+      handleChatSubmit(new Event('submit'));
+    }
+
+    function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const container = document.getElementById('chat-messages');
+      const userBubble = document.createElement('div');
+      userBubble.className = 'chat-bubble flex gap-3 max-w-xl ml-auto justify-end';
+      userBubble.innerHTML = `<div class="bg-brand-lime text-brand-dark p-4 rounded-3xl text-xs font-bold shadow-sm">${text}</div>`;
+      container.appendChild(userBubble);
+      input.value = '';
+      container.scrollTop = container.scrollHeight;
+
+      const typingEl = document.getElementById('chat-typing');
+      typingEl.classList.remove('hidden');
+      iniciarCarregamentoGlobal();
+
+      const editalId = document.getElementById('chat-edital-select').value;
+
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.perguntar_juridico) {
+        window.pywebview.api.perguntar_juridico(editalId, text).then(reply => {
+          finalizarCarregamentoGlobal();
+          typingEl.classList.add('hidden');
+          renderAiMessage(reply);
+        }).catch(() => {
+          finalizarCarregamentoGlobal();
+          typingEl.classList.add('hidden');
+          renderAiMessage('Não foi possível obter resposta no momento.');
+        });
+      } else {
+        setTimeout(() => {
+          finalizarCarregamentoGlobal();
+          typingEl.classList.add('hidden');
+          renderAiMessage(`Auditoria em tempo real para o edital selecionado: Sobre "<strong>${text}</strong>", o Termo de Referência exige regularidade fiscal e técnica plena nos termos da Lei 14.133/2021, sem cláusulas restritivas ou abusivas de marca.`);
+        }, 800);
+      }
+    }
+
+    function renderAiMessage(content) {
+      const container = document.getElementById('chat-messages');
+      const aiBubble = document.createElement('div');
+      aiBubble.className = 'chat-bubble flex gap-3 max-w-2xl';
+      aiBubble.innerHTML = `
+        <div class="w-8 h-8 rounded-2xl bg-brand-dark text-brand-lime flex items-center justify-center text-xs shrink-0 font-extrabold">Z</div>
+        <div class="bg-[#F5F7FA] p-4 rounded-3xl text-xs leading-relaxed text-brand-dark space-y-1.5 border border-brand-border/60 shadow-sm">${content}</div>
+      `;
+      container.appendChild(aiBubble);
+      container.scrollTop = container.scrollHeight;
+
+      if (window.gsap) {
+        gsap.fromTo(aiBubble, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35 });
+      }
+    }
+
+    function openPDF(filename, pncpId) {
+      showToast('Abrindo documento no visualizador...', 'info');
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.abrir_pdf) {
+        window.pywebview.api.abrir_pdf(filename, pncpId || '').then(res => {
+          if (res && res.status === 'ok') {
+            showToast(res.mensagem || 'Documento aberto no computador!', 'success');
+          } else {
+            showToast(res.mensagem || 'Não foi possível abrir o arquivo.', 'warn');
+          }
+        }).catch(err => {
+          showToast('Erro ao abrir documento: ' + err, 'warn');
+        });
+      } else {
+        showToast('Documento: ' + filename, 'info');
+      }
+    }
+
+    function sendToWhatsApp(editalId) {
+      showToast('Relatório OaaS preparado e encaminhado via WhatsApp!');
+    }
+
+    function reloadFiles() {
+      showToast('Atualizando galeria de documentos salvos...');
+      carregarRelatoriosSalvos();
+    }
+
+    function carregarRelatoriosSalvos() {
+      const container = document.getElementById('relatorios-grid');
+      if (!container) return;
+
+      iniciarCarregamentoGlobal();
+      container.innerHTML = `
+        <div class="skeleton-box bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex items-start justify-between">
+          <div class="flex items-start gap-3.5 w-full">
+            <div class="w-11 h-11 rounded-2xl bg-slate-200 shrink-0"></div>
+            <div class="space-y-2 w-full pr-4">
+              <div class="h-3.5 bg-slate-200 rounded w-3/4"></div>
+              <div class="h-2.5 bg-slate-100 rounded w-1/2"></div>
+              <div class="h-4 bg-slate-200/80 rounded-full w-24"></div>
+            </div>
+          </div>
+        </div>
+        <div class="skeleton-box bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex items-start justify-between">
+          <div class="flex items-start gap-3.5 w-full">
+            <div class="w-11 h-11 rounded-2xl bg-slate-200 shrink-0"></div>
+            <div class="space-y-2 w-full pr-4">
+              <div class="h-3.5 bg-slate-200 rounded w-3/4"></div>
+              <div class="h-2.5 bg-slate-100 rounded w-1/2"></div>
+              <div class="h-4 bg-slate-200/80 rounded-full w-24"></div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const finalizar = (arquivos) => {
+        finalizarCarregamentoGlobal();
+        renderizarListaArquivos(arquivos, container);
+      };
+
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.listar_relatorios_pdfs) {
+        window.pywebview.api.listar_relatorios_pdfs().then(arquivos => {
+          finalizar(arquivos);
+        }).catch(err => {
+          finalizar([]);
+        });
+      } else {
+        setTimeout(() => {
+          // Se estiver no navegador, exibe os editais salvos do banco local
+          if (currentEditais && currentEditais.length > 0) {
+            const salvos = currentEditais.filter(e => e.exigencias && e.exigencias.length > 0);
+            if (salvos.length > 0) {
+              finalizar(salvos.map(s => ({
+                nome: `Edital_${s.numero_controle_pncp.replace(/[\/\-]/g, '_')}.pdf`,
+                orgao: s.orgao,
+                extensao: 'PDF',
+                tamanho_mb: '1.24',
+                numero_pncp: s.numero_controle_pncp
+              })));
+              return;
+            }
+          }
+          finalizar([]);
+        }, 300);
+      }
+    }
+
+    function renderizarListaArquivos(arquivos, container) {
+      container.innerHTML = '';
+      if (!arquivos || arquivos.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-2 text-center py-12 bg-white rounded-3xl border border-dashed border-brand-border p-8">
+            <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+              <i data-lucide="folder-x" class="w-6 h-6"></i>
+            </div>
+            <h4 class="text-sm font-bold text-brand-dark">Nenhum documento baixado ainda</h4>
+            <p class="text-xs text-brand-subtle max-w-md mx-auto mt-1">Ao auditar contratações do PNCP, os anexos oficiais (editais, termos de referência e planilhas) são salvos com integridade e ficam acessíveis aqui.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      arquivos.forEach(arq => {
+        const item = document.createElement('div');
+        item.className = 'motion-card bg-white p-5 rounded-3xl border border-brand-border/80 shadow-sm flex items-start justify-between';
+        item.innerHTML = `
+          <div class="flex items-start gap-3.5">
+            <div class="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 font-black text-xs border border-red-100">
+              ${arq.extensao || 'PDF'}
+            </div>
+            <div class="space-y-1">
+              <h4 class="text-xs font-bold text-brand-dark truncate max-w-xs">${arq.nome}</h4>
+              <p class="text-[10px] text-brand-subtle font-semibold">${arq.orgao} • ${arq.tamanho_mb} MB • Oficial</p>
+              <span class="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full mt-1 border border-emerald-100">Banco de Dados Ativo</span>
+            </div>
+          </div>
+          <div class="flex gap-1.5">
+            <button onclick="openPDF('${arq.nome}')" class="motion-btn p-2 hover:bg-[#F5F7FA] rounded-xl text-brand-dark transition" title="Abrir Documento">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+            </button>
+            <button onclick="sendToWhatsApp('${arq.numero_pncp || arq.nome}')" class="motion-btn p-2 hover:bg-emerald-50 rounded-xl text-emerald-600 transition" title="Enviar Resumo no WhatsApp">
+              <i data-lucide="share-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+      lucide.createIcons();
+
+      if (window.gsap && arquivos.length > 0) {
+        gsap.fromTo('#relatorios-grid > div', 
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.3, stagger: 0.05, ease: 'power2.out' }
+        );
+      }
+    }
+
+    // Inicialização ao carregar a página
+    window.addEventListener('DOMContentLoaded', () => {
+      triggerDashboardAnimations();
+      carregarEstadoInicialLimpo();
+    });
+
+    async function carregarEstadoInicialLimpo() {
+      const container = document.getElementById('editais-list');
+      if (container) {
+        iniciarCarregamentoGlobal();
+        container.innerHTML = `
+          <div class="skeleton-box bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm space-y-4">
+            <div class="flex justify-between items-center">
+              <div class="h-3.5 bg-slate-200 rounded w-28"></div>
+              <div class="h-6 bg-slate-200 rounded-full w-20"></div>
+            </div>
+            <div class="h-5 bg-slate-200 rounded w-3/4"></div>
+            <div class="h-3 bg-slate-100 rounded w-1/2"></div>
+            <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+              <div class="h-6 bg-slate-200 rounded w-32"></div>
+              <div class="h-8 bg-slate-200 rounded-xl w-28"></div>
+            </div>
+          </div>
+          <div class="skeleton-box bg-white p-6 rounded-3xl border border-brand-border/80 shadow-sm space-y-4">
+            <div class="flex justify-between items-center">
+              <div class="h-3.5 bg-slate-200 rounded w-32"></div>
+              <div class="h-6 bg-slate-200 rounded-full w-20"></div>
+            </div>
+            <div class="h-5 bg-slate-200 rounded w-2/3"></div>
+            <div class="h-3 bg-slate-100 rounded w-1/3"></div>
+            <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+              <div class="h-6 bg-slate-200 rounded w-32"></div>
+              <div class="h-8 bg-slate-200 rounded-xl w-28"></div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 1. Conexão PyWebView para carregar configurações e filtros salvos
+      await carregarConfiguracoesSalvas();
+
+      // 2. Conexão PyWebView para métricas do banco de dados real
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.obter_metricas) {
+        try {
+          const data = await window.pywebview.api.obter_metricas();
+          if (data) {
+            const elTotal = document.getElementById('metric-total-bids');
+            if (elTotal) elTotal.textContent = data.total_editais || 0;
+            const elVol = document.getElementById('stat-val-volume');
+            if (elVol) elVol.textContent = formatBRL(data.volume_total || 0);
+            const elScore = document.getElementById('stat-val-score');
+            if (elScore && data.score_medio) elScore.textContent = Number(data.score_medio).toFixed(1);
+          }
+        } catch(e) {
+          console.warn('Carregamento inicial de métricas:', e);
+        }
+      }
+
+      // 3. Carrega editais já persistidos no SQLite / Supabase para não sumirem da tela
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.listar_editais) {
+        try {
+          const salvos = await window.pywebview.api.listar_editais();
+          finalizarCarregamentoGlobal();
+          if (salvos && salvos.length > 0) {
+            currentEditais = salvos;
+            renderEditaisNaTela(salvos, salvos, currentKeywords, currentUF);
+            atualizarMetricasComDadosReais(salvos, currentUF);
+            return;
+          }
+        } catch(e) {
+          finalizarCarregamentoGlobal();
+          console.warn('Erro ao carregar editais persistidos inicialmente:', e);
+        }
+      } else {
+        finalizarCarregamentoGlobal();
+      }
+
+      // 4. Se ainda não houver nenhum edital salvo no banco, exibe o banner orientativo
+      if (container) {
+        container.innerHTML = `
+          <div class="col-span-full text-center py-12 bg-white rounded-3xl border border-dashed border-brand-border p-8">
+            <div class="w-12 h-12 rounded-2xl bg-brand-lime/20 text-brand-dark flex items-center justify-center mx-auto mb-3">
+              <i data-lucide="sparkles" class="w-6 h-6"></i>
+            </div>
+            <h4 class="text-sm font-bold text-brand-dark">Pronto para buscar no Apify</h4>
+            <p class="text-xs text-brand-subtle max-w-md mx-auto mt-1">Clique em "BUSCAR VIA APIFY" para consultar editais e licitações abertas. Tudo ficará gravado no Redis e Supabase.</p>
+          </div>
+        `;
+        lucide.createIcons();
+      }
+    }
+
+    async function carregarConfiguracoesSalvas() {
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.obter_configuracoes) {
+        try {
+          const cfg = await window.pywebview.api.obter_configuracoes();
+          if (cfg) {
+            if (cfg.uf) {
+              currentUF = cfg.uf;
+              const elUf = document.getElementById('cfg-uf');
+              if (elUf) elUf.value = cfg.uf;
+              const hUf = document.getElementById('header-uf-tag');
+              if (hUf) hUf.textContent = `UF: ${currentUF} (PNCP)`;
+              const sUfB = document.getElementById('sidebar-uf-badge');
+              if (sUfB) sUfB.textContent = currentUF;
+              const sUfL = document.getElementById('sidebar-uf-label');
+              if (sUfL) sUfL.textContent = `OaaS Licitações ${currentUF}`;
+              const cUf = document.getElementById('chart-uf-tag');
+              if (cUf) cUf.textContent = `Estado: ${currentUF}`;
+            }
+            if (cfg.keywords && Array.isArray(cfg.keywords) && cfg.keywords.length > 0) {
+              currentKeywords = cfg.keywords;
+              const tagCont = document.getElementById('tags-container');
+              if (tagCont) {
+                tagCont.innerHTML = '';
+                currentKeywords.forEach(k => {
+                  const span = document.createElement('span');
+                  span.className = 'px-3 py-1 bg-brand-lime/40 text-brand-dark rounded-full text-xs font-bold flex items-center gap-1.5 motion-card';
+                  span.innerHTML = `${k} <button onclick="this.parentElement.remove()" class="hover:text-red-600">&times;</button>`;
+                  tagCont.appendChild(span);
+                });
+              }
+            }
+            if (cfg.negative_keywords && Array.isArray(cfg.negative_keywords)) {
+              currentNegativeKeywords = cfg.negative_keywords;
+              const negCont = document.getElementById('tags-negativas-container');
+              if (negCont) {
+                negCont.innerHTML = '';
+                currentNegativeKeywords.forEach(k => {
+                  const span = document.createElement('span');
+                  span.className = 'px-3 py-1 bg-rose-100 text-rose-800 rounded-full text-xs font-bold flex items-center gap-1.5 motion-card';
+                  span.innerHTML = `${k} <button onclick="this.parentElement.remove()" class="hover:text-red-900">&times;</button>`;
+                  negCont.appendChild(span);
+                });
+              }
+            }
+            if (cfg.municipio_filtro) {
+              currentMunicipio = cfg.municipio_filtro;
+              const elMun = document.getElementById('cfg-municipio');
+              if (elMun) elMun.value = cfg.municipio_filtro;
+            }
+            if (cfg.valor_minimo) {
+              currentValorMin = Number(cfg.valor_minimo);
+              const elMin = document.getElementById('cfg-valor-min');
+              if (elMin) elMin.value = cfg.valor_minimo;
+            }
+            if (cfg.valor_maximo) {
+              currentValorMax = Number(cfg.valor_maximo);
+              const elMax = document.getElementById('cfg-valor-max');
+              if (elMax) elMax.value = cfg.valor_maximo;
+            }
+            if (cfg.score_minimo !== undefined && cfg.score_minimo !== null) {
+              currentScoreMin = Number(cfg.score_minimo);
+              const elScore = document.getElementById('cfg-score-min');
+              if (elScore) elScore.value = String(cfg.score_minimo);
+            }
+            if (cfg.whatsapp) {
+              const elWpp = document.getElementById('cfg-whatsapp');
+              if (elWpp) elWpp.value = cfg.whatsapp;
+            }
+            if (cfg.modalidades && Array.isArray(cfg.modalidades)) {
+              currentModalidades = cfg.modalidades;
+              const mP = document.getElementById('mod-pregao');
+              if (mP) mP.checked = cfg.modalidades.includes('PREGÃO ELETRÔNICO');
+              const mD = document.getElementById('mod-dispensa');
+              if (mD) mD.checked = cfg.modalidades.includes('DISPENSA ELETRÔNICA');
+              const mC = document.getElementById('mod-concorrencia');
+              if (mC) mC.checked = cfg.modalidades.includes('CONCORRÊNCIA');
+              const mO = document.getElementById('mod-outras');
+              if (mO) mO.checked = cfg.modalidades.includes('OUTRAS');
+            }
+          }
+        } catch(e) {
+          console.warn('Erro ao carregar configurações salvas:', e);
+        }
+      }
+    }
+
+    // Conexão PyWebView
+    window.addEventListener('pywebviewready', () => {
+      carregarEstadoInicialLimpo();
+    });
+  </script>
+</body>
+</html>

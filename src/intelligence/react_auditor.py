@@ -182,33 +182,49 @@ TEXTO DO EDITAL / ANEXOS COM CITAÇÕES:
             except Exception as ex:
                 logger.warning(f"Falha ao chamar Proxy Seguro de IA: {ex}")
 
-        # 2. Chamada direta OpenRouter (Modelos Free como Minimax, Xing, Nemotron, Llama)
+        # 2. Chamada direta OpenRouter (com fallback automático de modelos)
         if settings.OPENROUTER_API_KEY:
-            try:
-                model = self.model_name or settings.LLM_MODEL or "minimax/minimax-m3.1-flash:free"
-                logger.info(f"Executando auditoria LLM via OpenRouter ({model})...")
-                resp = httpx.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
-                        "HTTP-Referer": "https://zenolicitacoes.com.br",
-                        "X-Title": "Zeno Licitacoes"
-                    },
-                    json={
-                        "model": model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "response_format": {"type": "json_object"}
-                    },
-                    timeout=60.0
-                )
-                if resp.status_code == 200:
-                    raw_content = resp.json()["choices"][0]["message"]["content"]
-                    parsed = _extrair_json(raw_content)
-                    return EditalAuditado(**parsed)
-                else:
-                    logger.warning(f"OpenRouter retornou status {resp.status_code}: {resp.text}")
-            except Exception as ex:
-                logger.warning(f"Falha na chamada OpenRouter: {ex}")
+            modelos_tentar = []
+            if self.model_name:
+                modelos_tentar.append(self.model_name)
+            if settings.LLM_MODEL and settings.LLM_MODEL not in modelos_tentar:
+                modelos_tentar.append(settings.LLM_MODEL)
+            # Candidatos adicionais de alta disponibilidade e gratuitos
+            candidatos_padrao = [
+                "nvidia/nemotron-3.5-lightning:free",
+                "nvidia/nemotron-3-super-120b-a12b:free",
+                "google/gemma-4-26b-a4b-it:free",
+                "google/gemma-4-31b-it:free"
+            ]
+            for c in candidatos_padrao:
+                if c not in modelos_tentar:
+                    modelos_tentar.append(c)
+
+            for model in modelos_tentar:
+                try:
+                    logger.info(f"Executando auditoria LLM via OpenRouter ({model})...")
+                    resp = httpx.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                            "HTTP-Referer": "https://zenolicitacoes.com.br",
+                            "X-Title": "Zeno Licitacoes"
+                        },
+                        json={
+                            "model": model,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "response_format": {"type": "json_object"}
+                        },
+                        timeout=60.0
+                    )
+                    if resp.status_code == 200:
+                        raw_content = resp.json()["choices"][0]["message"]["content"]
+                        parsed = _extrair_json(raw_content)
+                        return EditalAuditado(**parsed)
+                    else:
+                        logger.warning(f"OpenRouter ({model}) retornou status {resp.status_code}: {resp.text[:200]}")
+                except Exception as ex:
+                    logger.warning(f"Falha na chamada OpenRouter ({model}): {ex}")
 
         # 3. Chamada direta OpenAI (Ambiente de desenvolvimento)
         if settings.OPENAI_API_KEY:

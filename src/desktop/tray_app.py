@@ -33,6 +33,8 @@ from src.desktop.startup_manager import register_startup
 from src.desktop.api import DesktopAPI
 from src.main import run_cycle
 from src.config import settings
+from src.utils.paths import get_ui_entrypoint
+
 
 # Tenta carregar pywebview para a interface nativa
 HAS_WEBVIEW = False
@@ -158,12 +160,23 @@ class ZenoRadarTrayApp:
         threading.Thread(target=self._executar_varredura_job, daemon=True).start()
 
         # 6. Decidir modo de execução (com UI nativa ou apenas bandeja)
-        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-            ui_html_path = Path(sys._MEIPASS) / "src" / "desktop" / "ui" / "index.html"
-        else:
-            ui_html_path = BASE_DIR / "src" / "desktop" / "ui" / "index.html"
+        ui_html_path = get_ui_entrypoint()
+        target_url = str(ui_html_path)
 
-        if HAS_WEBVIEW and not headless and ui_html_path.exists():
+        # Detecta se o Vite Dev Server está ativo na porta 5173
+        import socket
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.4)
+                if s.connect_ex(("127.0.0.1", 5173)) == 0:
+                    target_url = "http://localhost:5173"
+                    logger.info("⚡ Vite Dev Server ativo detectado na porta 5173! Carregando com Hot-Reload.")
+        except Exception:
+            pass
+
+        logger.info(f"Interface gráfica resolvida em: {target_url}")
+
+        if HAS_WEBVIEW and not headless and (ui_html_path.exists() or target_url.startswith("http")):
             # Inicia o ícone do tray em background thread
             tray_thread = threading.Thread(target=self.icon.run, daemon=True)
             tray_thread.start()
@@ -171,7 +184,7 @@ class ZenoRadarTrayApp:
             # Cria a janela desktop nativa
             self.window = webview.create_window(
                 title=f"Zeno Radar — Painel de Licitações ({self.license_config.uf_target})",
-                url=str(ui_html_path),
+                url=target_url,
                 js_api=self.api,
                 width=1280,
                 height=820,
@@ -205,10 +218,7 @@ class ZenoRadarTrayApp:
             except Exception:
                 pass
 
-        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-            ui_html_path = Path(sys._MEIPASS) / "src" / "desktop" / "ui" / "index.html"
-        else:
-            ui_html_path = BASE_DIR / "src" / "desktop" / "ui" / "index.html"
+        ui_html_path = get_ui_entrypoint()
 
         if HAS_WEBVIEW and ui_html_path.exists():
             try:

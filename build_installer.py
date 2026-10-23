@@ -90,6 +90,8 @@ def build_executable():
         "--hidden-import=src.desktop.startup_manager",
         "--hidden-import=src.desktop.tray_app",
         "--hidden-import=src.desktop.api",
+        "--hidden-import=src.mcp_server",
+        "--hidden-import=src.mcp_server.zeno_mcp",
         "--hidden-import=src.intelligence.chat_assistant",
         "--hidden-import=src.intelligence.react_auditor",
         "--hidden-import=src.intelligence.pageindex_tree",
@@ -104,6 +106,26 @@ def build_executable():
         "--hidden-import=webview.platforms.winforms",
         "--hidden-import=webview.platforms.edgechromium",
         f"--add-data={BASE_DIR / 'src' / 'desktop' / 'ui' / 'index.html'};src/desktop/ui",
+    ]
+
+    # Compilar frontend Vite se existir
+    frontend_dir = BASE_DIR / "frontend"
+    if (frontend_dir / "package.json").exists():
+        try:
+            print("📦 Compilando interface gráfica via Vite...")
+            subprocess.run(["npm.cmd" if sys.platform == "win32" else "npm", "run", "build"], cwd=str(frontend_dir), check=False)
+        except Exception as e:
+            print(f"ℹ Aviso: Falha ao compilar frontend automaticamente: {e}")
+
+    # Incluir pasta de build compilada (dist) se existir
+    ui_dist = BASE_DIR / "src" / "desktop" / "ui" / "dist"
+    if ui_dist.exists() and (ui_dist / "index.html").exists():
+        cmd.append(f"--add-data={ui_dist};src/desktop/ui/dist")
+        print(f"✔ Empacotando build otimizado da interface: {ui_dist}")
+    else:
+        print("ℹ Build dist não detectado. Utilizando src/desktop/ui/index.html.")
+
+    cmd.extend([
         "--collect-all=webview",
         "--collect-all=clr_loader",
         "--collect-all=pythonnet",
@@ -111,9 +133,10 @@ def build_executable():
         "--collect-all=apscheduler",
         "--collect-all=pydantic",
         "--collect-all=pydantic_settings",
+        "--collect-all=mcp",
         "--clean",
         str(entrypoint)
-    ]
+    ])
 
     print("Executando PyInstaller...")
     print(" ".join(cmd))

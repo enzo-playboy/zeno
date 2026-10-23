@@ -28,6 +28,12 @@ dist/
 *.msi
 *.zip
 
+# Frontend Node / Vite
+frontend/node_modules/
+node_modules/
+.vite/
+frontend/.vite/
+
 # Logs e Downloads
 logs/
 *.log
